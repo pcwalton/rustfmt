@@ -13,6 +13,7 @@ static TAB_WIDTH: i32 = 4;
 
 enum ProductionToParse {
     MatchProduction,
+    UseProduction,
     BracesProduction,
     ParenthesesProduction,
 }
@@ -33,9 +34,21 @@ impl LineToken {
     fn whitespace_needed_after(&self, next: &LineToken) -> bool {
         match (&self.token_and_span.tok, &next.token_and_span.tok) {
             (&token::IDENT(..), &token::IDENT(..)) => true,
-            (&token::IDENT(..), &token::NOT) => {
+            (&token::IDENT(..), &token::NOT)
+                    if !token::is_any_keyword(&self.token_and_span.tok) => {
                 // Macros.
                 false
+            }
+
+            (&token::IDENT(..), _) if
+                    token::is_keyword(keywords::If, &self.token_and_span.tok) ||
+                    token::is_keyword(keywords::As, &self.token_and_span.tok) ||
+                    token::is_keyword(keywords::Match, &self.token_and_span.tok) => {
+                true
+            }
+            (_, &token::IDENT(..))
+                    if token::is_keyword(keywords::If, &next.token_and_span.tok) => {
+                true
             }
 
             (&token::COLON, _) => true,
@@ -70,13 +83,6 @@ impl LineToken {
 
     fn length(&self) -> i32 {
         token::to_str(&self.token_and_span.tok).len() as i32
-    }
-
-    fn starts_logical_line(&self) -> bool {
-        match self.token_and_span.tok {
-            token::RBRACE => true,
-            _ => false,
-        }
     }
 
     fn preindentation(&self) -> i32 {
@@ -142,6 +148,7 @@ struct Formatter<'a> {
     logical_line: LogicalLine,
     last_token: Token,
     newline_after_comma: bool,
+    newline_after_brace: bool,
 }
 
 impl<'a> Formatter<'a> {
@@ -152,13 +159,22 @@ impl<'a> Formatter<'a> {
             logical_line: LogicalLine::new(),
             last_token: token::SEMI,
             newline_after_comma: false,
+            newline_after_brace: true,
         }
     }
 
     fn token_ends_logical_line(&self, line_token: &LineToken) -> bool {
         match line_token.token_and_span.tok {
-            token::LBRACE | token::SEMI | token::RBRACE => true,
+            token::SEMI | token::RBRACE => true,
             token::COMMA => self.newline_after_comma,
+            token::LBRACE => self.newline_after_brace,
+            _ => false,
+        }
+    }
+
+    fn token_starts_logical_line(&self, line_token: &LineToken) -> bool {
+        match line_token.token_and_span.tok {
+            token::RBRACE => self.newline_after_brace,
             _ => false,
         }
     }
@@ -199,6 +215,30 @@ impl<'a> Formatter<'a> {
         return true;
     }
 
+    fn parse_use(&mut self) -> bool {
+        let old_newline_after_brace_setting = self.newline_after_brace;
+        self.newline_after_brace = false;
+
+        // We've already parsed the keyword. Parse until we find a `{`.
+        if !self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI) {
+            return false;
+        }
+
+        if self.last_token == token::LBRACE {
+            let old_newline_after_comma_setting = self.newline_after_comma;
+            self.newline_after_comma = false;
+
+            if !self.parse_productions_up_to(|token| *token == token::RBRACE) {
+                return false;
+            }
+
+            self.newline_after_comma = old_newline_after_comma_setting;
+        }
+
+        self.newline_after_brace = old_newline_after_brace_setting;
+        return true;
+    }
+
     fn parse_braces(&mut self) -> bool {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
@@ -227,6 +267,9 @@ impl<'a> Formatter<'a> {
             token::IDENT(..) if token::is_keyword(keywords::Match, &self.last_token) => {
                 production_to_parse = MatchProduction;
             }
+            token::IDENT(..) if token::is_keyword(keywords::Use, &self.last_token) => {
+                production_to_parse = UseProduction;
+            }
             token::LBRACE => production_to_parse = BracesProduction,
             token::LPAREN => production_to_parse = ParenthesesProduction,
             _ => return true,
@@ -234,6 +277,7 @@ impl<'a> Formatter<'a> {
 
         match production_to_parse {
             MatchProduction => return self.parse_match(),
+            UseProduction => return self.parse_use(),
             BracesProduction => return self.parse_braces(),
             ParenthesesProduction => return self.parse_parentheses(),
         }
@@ -250,7 +294,7 @@ impl<'a> Formatter<'a> {
             let last_token = self.lexer.peek();
             self.last_token = last_token.tok.clone();
             let line_token = LineToken::new(last_token);
-            if line_token.starts_logical_line() && self.logical_line.tokens.len() > 0 {
+            if self.token_starts_logical_line(&line_token) && self.logical_line.tokens.len() > 0 {
                 self.flush_line();
                 continue;
             }
