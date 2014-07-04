@@ -1,4 +1,4 @@
-# `rustfmt` -- A code formatting tool for the Rust Programming Language
+## `rustfmt` -- code formatting Rust
 
 ### Building `rustfmt`
 
