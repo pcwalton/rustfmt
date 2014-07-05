@@ -1,13 +1,9 @@
-// rustfmt/main.rs
+// rustfmt/rustfmt.rs
 
-use std::io;
-use std::str;
 use syntax::parse::lexer::{StringReader, TokenAndSpan};
-use syntax::parse::lexer;
 use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
-use syntax::parse;
 
 static TAB_WIDTH: i32 = 4;
 
@@ -142,7 +138,7 @@ impl LogicalLine {
     }
 }
 
-struct Formatter<'a> {
+pub struct Formatter<'a> {
     lexer: StringReader<'a>,
     indent: i32,
     logical_line: LogicalLine,
@@ -152,7 +148,7 @@ struct Formatter<'a> {
 }
 
 impl<'a> Formatter<'a> {
-    fn new<'a>(lexer: StringReader<'a>) -> Formatter<'a> {
+    pub fn new<'a>(lexer: StringReader<'a>) -> Formatter<'a> {
         Formatter {
             lexer: lexer,
             indent: 0,
@@ -261,7 +257,7 @@ impl<'a> Formatter<'a> {
         return result;
     }
 
-    fn parse_production(&mut self) -> bool {
+    pub fn parse_production(&mut self) -> bool {
         let production_to_parse;
         match self.last_token {
             token::IDENT(..) if token::is_keyword(keywords::Match, &self.last_token) => {
@@ -283,7 +279,7 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn next_token(&mut self) -> bool {
+    pub fn next_token(&mut self) -> bool {
         use syntax::parse::lexer::Reader;
 
         loop {
@@ -330,21 +326,6 @@ impl<'a> Formatter<'a> {
 
         self.indent += self.logical_line.postindentation();
         self.logical_line = LogicalLine::new();
-    }
-}
-
-#[main]
-pub fn main() {
-    let source = io::stdin().read_to_end().unwrap();
-    let source = str::from_utf8(source.as_slice()).unwrap();
-
-    let session = parse::new_parse_sess();
-    let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
-    let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
-    let mut formatter = Formatter::new(lexer);
-
-    while formatter.next_token() {
-        formatter.parse_production();
     }
 }
 
