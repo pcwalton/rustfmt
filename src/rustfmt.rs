@@ -1,5 +1,7 @@
 // rustfmt/rustfmt.rs
 
+use std::io::Writer;
+
 use syntax::parse::lexer::{StringReader, TokenAndSpan};
 use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
@@ -145,10 +147,11 @@ pub struct Formatter<'a> {
     last_token: Token,
     newline_after_comma: bool,
     newline_after_brace: bool,
+    output: &'a mut Writer
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new<'a>(lexer: StringReader<'a>) -> Formatter<'a> {
+    pub fn new<'a>(lexer: StringReader<'a>, output: &'a mut Writer) -> Formatter<'a> {
         Formatter {
             lexer: lexer,
             indent: 0,
@@ -156,6 +159,7 @@ impl<'a> Formatter<'a> {
             last_token: token::SEMI,
             newline_after_comma: false,
             newline_after_brace: true,
+            output: output
         }
     }
 
@@ -314,15 +318,15 @@ impl<'a> Formatter<'a> {
         self.logical_line.layout(self.indent);
 
         for _ in range(0, self.indent) {
-            print!(" ");
+            self.output.write_str(" ");
         }
         for i in range(0, self.logical_line.tokens.len()) {
-            print!("{}", token::to_str(&self.logical_line.tokens.get(i).token_and_span.tok));
+            self.output.write_str(format!("{}", token::to_str(&self.logical_line.tokens.get(i).token_and_span.tok)).as_slice());
             for _ in range(0, self.logical_line.whitespace_after(i)) {
-                print!(" ");
+                self.output.write_str(" ");
             }
         }
-        println!("");
+        self.output.write_line("");
 
         self.indent += self.logical_line.postindentation();
         self.logical_line = LogicalLine::new();

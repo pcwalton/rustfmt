@@ -12,15 +12,18 @@ use syntax::parse;
 
 pub mod rustfmt;
 
+/// The Main Function
 #[main]
 pub fn main() {
     let source = io::stdin().read_to_end().unwrap();
     let source = str::from_utf8(source.as_slice()).unwrap();
 
+    // nothing special
     let session = parse::new_parse_sess();
     let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
     let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
-    let mut formatter = rustfmt::Formatter::new(lexer);
+    let mut stdout = io::stdio::stdout();
+    let mut formatter = rustfmt::Formatter::new(lexer, &mut stdout);
 
     while formatter.next_token() {
         formatter.parse_production();
