@@ -2,13 +2,25 @@
 
 ### Building `rustfmt`
 
-With a recent build of `rustc`:
+With a recent build of `rustc` and `cargo` installed:
 
 ~~~~
-rustc rustfmt.rs
+cargo build
 ~~~~
 
-This will give you a `rustfmt` binary that behaves as detailed below.
+Failing a cargo install, the project can be built with:
+
+~~~~
+make
+~~~~
+
+or
+
+~~~~
+rustc src/main.rs
+~~~~
+
+This will give you a `rustfmt` or `main` binary that behaves as detailed below.
 
 ### Functionality
 
