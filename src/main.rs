@@ -2,6 +2,7 @@
 #![crate_id="http://github.com/pcwalton/rustfmt#rustfmt:0.0.1"]
 #![desc = "Rust code formatter"]
 #![license = "MIT"]
+#![feature(macro_rules)]
 
 extern crate syntax;
 
@@ -10,7 +11,9 @@ use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
 
-pub mod rustfmt;
+mod rustfmt;
+#[cfg(test)]
+mod test;
 
 /// The Main Function
 #[main]
