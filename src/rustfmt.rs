@@ -7,7 +7,17 @@ use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
 
+macro_rules! try_io(
+    ($e:expr) => (match $e {
+        Ok(_) => {},
+        Err(err) => return Err(
+                format!("Err in Formatter: {}: '{}' details: {}", err.to_str(), err.desc, err.detail))
+    })
+)
+
 static TAB_WIDTH: i32 = 4;
+
+pub type FormatterResult<T> = Result<T, String>;
 
 enum ProductionToParse {
     MatchProduction,
@@ -179,89 +189,89 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn parse_tokens_up_to(&mut self, pred: |&token::Token| -> bool) -> bool {
-        while self.next_token() {
+    fn parse_tokens_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+        while try!(self.next_token()) {
             if pred(&self.last_token) {
-                return true;
+                return Ok(true);
             }
         }
-        return false;
+        return Ok(false);
     }
 
-    fn parse_productions_up_to(&mut self, pred: |&token::Token| -> bool) -> bool {
-        while self.next_token() {
+    fn parse_productions_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+        while try!(self.next_token()) {
             if pred(&self.last_token) {
-                return true;
+                return Ok(true);
             }
-            self.parse_production();
+            try!(self.parse_production());
         }
-        return false;
+        return Ok(false);
     }
 
-    fn parse_match(&mut self) -> bool {
+    fn parse_match(&mut self) -> FormatterResult<bool> {
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !self.parse_tokens_up_to(|token| *token == token::LBRACE) {
-            return false;
+        if !try!(self.parse_tokens_up_to(|token| *token == token::LBRACE)) {
+            return Ok(false);
         }
 
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
 
-        if !self.parse_productions_up_to(|token| *token == token::RBRACE) {
-            return false;
+        if !try!(self.parse_productions_up_to(|token| *token == token::RBRACE)) {
+            return Ok(false);
         }
 
         self.newline_after_comma = old_newline_after_comma_setting;
-        return true;
+        return Ok(true);
     }
 
-    fn parse_use(&mut self) -> bool {
+    fn parse_use(&mut self) -> FormatterResult<bool> {
         let old_newline_after_brace_setting = self.newline_after_brace;
         self.newline_after_brace = false;
 
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI) {
-            return false;
+        if try!(self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI)) {
+            return Ok(false);
         }
 
         if self.last_token == token::LBRACE {
             let old_newline_after_comma_setting = self.newline_after_comma;
             self.newline_after_comma = false;
 
-            if !self.parse_productions_up_to(|token| *token == token::RBRACE) {
-                return false;
+            if !try!(self.parse_productions_up_to(|token| *token == token::RBRACE)) {
+                return Ok(false);
             }
 
             self.newline_after_comma = old_newline_after_comma_setting;
         }
 
         self.newline_after_brace = old_newline_after_brace_setting;
-        return true;
+        return Ok(true);
     }
 
-    fn parse_braces(&mut self) -> bool {
+    fn parse_braces(&mut self) -> FormatterResult<bool> {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
 
         // We've already parsed the '{'. Parse until we find a '}'.
-        let result = self.parse_productions_up_to(|token| *token == token::RBRACE);
+        let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACE));
 
         self.newline_after_comma = old_newline_after_comma_setting;
-        return result;
+        return Ok(result);
     }
 
-    fn parse_parentheses(&mut self) -> bool {
+    fn parse_parentheses(&mut self) -> FormatterResult<bool> {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = false;
 
         // We've already parsed the '('. Parse until we find a ')'.
-        let result = self.parse_productions_up_to(|token| *token == token::RPAREN);
+        let result = try!(self.parse_productions_up_to(|token| *token == token::RPAREN));
 
         self.newline_after_comma = old_newline_after_comma_setting;
-        return result;
+        return Ok(result);
     }
 
-    pub fn parse_production(&mut self) -> bool {
+    pub fn parse_production(&mut self) -> FormatterResult<bool> {
         let production_to_parse;
         match self.last_token {
             token::IDENT(..) if token::is_keyword(keywords::Match, &self.last_token) => {
@@ -272,7 +282,7 @@ impl<'a> Formatter<'a> {
             }
             token::LBRACE => production_to_parse = BracesProduction,
             token::LPAREN => production_to_parse = ParenthesesProduction,
-            _ => return true,
+            _ => return Ok(true),
         }
 
         match production_to_parse {
@@ -283,19 +293,19 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> bool {
+    pub fn next_token(&mut self) -> FormatterResult<bool> {
         use syntax::parse::lexer::Reader;
 
         loop {
             if self.lexer.is_eof() {
-                return false;
+                return Ok(false);
             }
 
             let last_token = self.lexer.peek();
             self.last_token = last_token.tok.clone();
             let line_token = LineToken::new(last_token);
             if self.token_starts_logical_line(&line_token) && self.logical_line.tokens.len() > 0 {
-                self.flush_line();
+                try!(self.flush_line());
                 continue;
             }
 
@@ -307,29 +317,30 @@ impl<'a> Formatter<'a> {
             let token_ends_logical_line = self.token_ends_logical_line(&line_token);
             self.logical_line.tokens.push(line_token);
             if token_ends_logical_line {
-                self.flush_line();
+                try!(self.flush_line());
             }
 
-            return true;
+            return Ok(true);
         }
     }
 
-    fn flush_line(&mut self) {
+    fn flush_line(&mut self) -> FormatterResult<()> {
         self.logical_line.layout(self.indent);
 
         for _ in range(0, self.indent) {
-            self.output.write_str(" ");
+            try_io!(self.output.write_str(" "));
         }
         for i in range(0, self.logical_line.tokens.len()) {
-            self.output.write_str(format!("{}", token::to_str(&self.logical_line.tokens.get(i).token_and_span.tok)).as_slice());
+            try_io!(self.output.write_str(format!("{}", token::to_str(&self.logical_line.tokens.get(i).token_and_span.tok)).as_slice()));
             for _ in range(0, self.logical_line.whitespace_after(i)) {
-                self.output.write_str(" ");
+                try_io!(self.output.write_str(" "));
             }
         }
-        self.output.write_line("");
+        try_io!(self.output.write_line(""));
 
         self.indent += self.logical_line.postindentation();
         self.logical_line = LogicalLine::new();
+        Ok(())
     }
 }
 

@@ -16,7 +16,6 @@ mod rustfmt;
 mod test;
 
 /// The Main Function
-#[main]
 pub fn main() {
     let source = io::stdin().read_to_end().unwrap();
     let source = str::from_utf8(source.as_slice()).unwrap();
@@ -28,8 +27,17 @@ pub fn main() {
     let mut stdout = io::stdio::stdout();
     let mut formatter = rustfmt::Formatter::new(lexer, &mut stdout);
 
-    while formatter.next_token() {
-        formatter.parse_production();
+    loop {
+        match formatter.next_token() {
+            Ok(true) => {
+                match formatter.parse_production() {
+                    Err(e) => fail!(e),
+                    _ => {}
+                }
+            },
+            Ok(false) => break,
+            Err(e) => fail!(e)
+        }
     }
 }
 

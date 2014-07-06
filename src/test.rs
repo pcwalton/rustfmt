@@ -15,9 +15,17 @@ fn test_rustfmt(source: &str) -> String {
     let mut output = MemWriter::new();
     {
         let mut formatter = rustfmt::Formatter::new(lexer, &mut output);
-
-        while formatter.next_token() {
-            formatter.parse_production();
+        loop {
+            match formatter.next_token() {
+                Ok(true) => {
+                    match formatter.parse_production() {
+                        Err(e) => fail!(e),
+                        _ => {}
+                    }
+                },
+                Ok(false) => break,
+                Err(e) => fail!(e)
+            }
         }
     }
     str::from_utf8(output.unwrap().as_slice()).unwrap().to_string()
