@@ -31,7 +31,7 @@ DEFAULT = exe
 # Change this to support multi-crate source structure.
 # For advanced usage, you can rename the file 'rust-empty.mk'
 # and call it with 'make -f rust-empty.mk <command>' from your Makefile.
-LIB_ENTRY_FILE = src/lib.rs
+LIB_ENTRY_FILE = src/main.rs
 # The entry file of executable source.
 EXE_ENTRY_FILE = src/main.rs
 
@@ -251,9 +251,8 @@ bin/main: $(SOURCE_FILES) | bin/ $(EXE_ENTRY_FILE)
 	&& echo "--- Built executable" \
 	&& echo "--- Type 'make run' to run executable"
 
-test: test-internal test-external
-	$(Q)echo "--- Internal tests succeeded" \
-	&& echo "--- External tests succeeded"
+test: test-internal
+	$(Q)echo "--- Internal tests succeeded"
 
 test-external: bin/test-external
 	$(Q)cd "bin/" \
