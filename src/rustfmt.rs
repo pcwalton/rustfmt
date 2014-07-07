@@ -24,6 +24,7 @@ enum ProductionToParse {
     UseProduction,
     BracesProduction,
     ParenthesesProduction,
+    AttributeProduction
 }
 
 struct LineToken {
@@ -252,7 +253,6 @@ impl<'a> Formatter<'a> {
     fn parse_braces(&mut self) -> FormatterResult<bool> {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
-
         // We've already parsed the '{'. Parse until we find a '}'.
         let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACE));
 
@@ -271,6 +271,13 @@ impl<'a> Formatter<'a> {
         return Ok(result);
     }
 
+    fn parse_attribute(&mut self) -> FormatterResult<bool> {
+        // Parse until we find a ']'.
+        let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACKET));
+        try!(self.flush_line());
+        return Ok(result);
+    }
+
     pub fn parse_production(&mut self) -> FormatterResult<bool> {
         let production_to_parse;
         match self.last_token {
@@ -282,6 +289,7 @@ impl<'a> Formatter<'a> {
             }
             token::LBRACE => production_to_parse = BracesProduction,
             token::LPAREN => production_to_parse = ParenthesesProduction,
+            token::POUND => production_to_parse = AttributeProduction,
             _ => return Ok(true),
         }
 
@@ -290,6 +298,7 @@ impl<'a> Formatter<'a> {
             UseProduction => return self.parse_use(),
             BracesProduction => return self.parse_braces(),
             ParenthesesProduction => return self.parse_parentheses(),
+            AttributeProduction => return self.parse_attribute()
         }
     }
 

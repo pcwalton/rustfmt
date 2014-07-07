@@ -39,3 +39,13 @@ fn can_format_a_basic_function() {
 }
 ".to_string());
 }
+
+#[test]
+fn adds_newline_after_attributes() {
+    let result = test_rustfmt("#[foo]fn main() {}");
+    assert_eq!(result,
+"#[foo]
+fn main() {
+}
+".to_string());
+}
