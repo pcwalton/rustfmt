@@ -135,8 +135,7 @@ pub fn main() {
                         Err(e) => fail!(e),
                         _ => {}
                     }
-                }
-                ,
+                },
                 Ok(false) => break,
                 Err(e) => fail!(e)
             }

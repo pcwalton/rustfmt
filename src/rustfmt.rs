@@ -180,8 +180,14 @@ impl<'a> Formatter<'a> {
         use syntax::parse::lexer::Reader;
 
         match line_token.token_and_span.tok {
-            token::SEMI | token::RBRACE => {
-                true
+            token::SEMI => true,
+            token::RBRACE => {
+                match self.lexer.peek() {
+                    TokenAndSpan { tok: token::COMMA, sp: _ } => {
+                        false
+                    }
+                    _ => true
+                }
             },
             token::COMMA => self.newline_after_comma,
             token::LBRACE => {
@@ -372,6 +378,11 @@ impl<'a> Formatter<'a> {
             // collapse empty blocks in match arms
             if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() -1) &&
                 &self.logical_line.tokens.get(i+1).token_and_span.tok == &token::RBRACE {
+                continue;
+            }
+            // no whitespace after right-brackets, before comma in match arm
+            if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() -1) &&
+                &self.logical_line.tokens.get(i+1).token_and_span.tok == &token::COMMA {
                 continue;
             }
             for _ in range(0, self.logical_line.whitespace_after(i)) {
