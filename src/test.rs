@@ -49,3 +49,36 @@ fn main() {
 }
 ".to_string());
 }
+
+#[test]
+fn adds_newline_after_doc_comments() {
+    let result = test_rustfmt("/// The Main function
+fn main() {}");
+    assert_eq!(result,
+"/// The Main function
+fn main() {
+}
+".to_string());
+}
+
+#[test]
+fn adds_newline_after_multiline_doc_comment() {
+    let result = test_rustfmt(
+"/*! The Main function
+* some neat info goes here
+* ````
+* bleh();
+* ````
+*/
+fn main() {}");
+    assert_eq!(result,
+"/*! The Main function
+* some neat info goes here
+* ````
+* bleh();
+* ````
+*/
+fn main() {
+}
+".to_string());
+}

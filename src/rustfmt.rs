@@ -290,6 +290,10 @@ impl<'a> Formatter<'a> {
             token::LBRACE => production_to_parse = BracesProduction,
             token::LPAREN => production_to_parse = ParenthesesProduction,
             token::POUND => production_to_parse = AttributeProduction,
+            token::DOC_COMMENT(_) => {
+                try!(self.flush_line());
+                return Ok(true);
+            },
             _ => return Ok(true),
         }
 
