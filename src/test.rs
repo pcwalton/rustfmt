@@ -82,3 +82,20 @@ fn main() {
 }
 ".to_string());
 }
+
+#[test]
+fn indent_regression_from_port_to_result_api() {
+    let input = "#![feature(macro_rules)]
+extern crate syntax;
+use foo;
+mod rustfmt;
+#[cfg(test)]
+mod test;
+/// The Main Function
+pub fn main() {
+    foo();
+}
+";
+
+    assert_eq!(input.to_string(), test_rustfmt(input));
+}

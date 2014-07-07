@@ -231,7 +231,7 @@ impl<'a> Formatter<'a> {
         self.newline_after_brace = false;
 
         // We've already parsed the keyword. Parse until we find a `{`.
-        if try!(self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI)) {
+        if !try!(self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI)) {
             return Ok(false);
         }
 
