@@ -156,6 +156,7 @@ pub struct Formatter<'a> {
     indent: i32,
     logical_line: LogicalLine,
     last_token: Token,
+    second_previous_token: Token,
     newline_after_comma: bool,
     newline_after_brace: bool,
     output: &'a mut Writer
@@ -168,6 +169,7 @@ impl<'a> Formatter<'a> {
             indent: 0,
             logical_line: LogicalLine::new(),
             last_token: token::SEMI,
+            second_previous_token: token::SEMI,
             newline_after_comma: false,
             newline_after_brace: true,
             output: output
@@ -175,17 +177,34 @@ impl<'a> Formatter<'a> {
     }
 
     fn token_ends_logical_line(&self, line_token: &LineToken) -> bool {
+        use syntax::parse::lexer::Reader;
+
         match line_token.token_and_span.tok {
-            token::SEMI | token::RBRACE => true,
+            token::SEMI | token::RBRACE => {
+                true
+            },
             token::COMMA => self.newline_after_comma,
-            token::LBRACE => self.newline_after_brace,
+            token::LBRACE => {
+                match self.lexer.peek() {
+                    TokenAndSpan { tok: token::RBRACE, sp: _ } => {
+                        false
+                    }
+                    _ => self.newline_after_brace
+                }
+            },
             _ => false,
         }
     }
 
     fn token_starts_logical_line(&self, line_token: &LineToken) -> bool {
         match line_token.token_and_span.tok {
-            token::RBRACE => self.newline_after_brace,
+            token::RBRACE => {
+                match (&self.second_previous_token, &self.last_token) {
+                    // suppress newline separating braces in empty match arms
+                    (&token::FAT_ARROW, &token::LBRACE) => false,
+                    _ => self.newline_after_brace
+                }
+            },
             _ => false,
         }
     }
@@ -314,13 +333,15 @@ impl<'a> Formatter<'a> {
                 return Ok(false);
             }
 
-            let last_token = self.lexer.peek();
-            self.last_token = last_token.tok.clone();
-            let line_token = LineToken::new(last_token);
+            let next_token = self.lexer.peek();
+            let next_tok_copy = next_token.tok.clone();
+            let line_token = LineToken::new(next_token);
             if self.token_starts_logical_line(&line_token) && self.logical_line.tokens.len() > 0 {
                 try!(self.flush_line());
                 continue;
             }
+            self.second_previous_token = self.last_token.clone();
+            self.last_token = next_tok_copy;
 
             if self.logical_line.tokens.len() == 0 {
                 self.indent += line_token.preindentation();
@@ -338,13 +359,21 @@ impl<'a> Formatter<'a> {
     }
 
     fn flush_line(&mut self) -> FormatterResult<()> {
+
         self.logical_line.layout(self.indent);
 
         for _ in range(0, self.indent) {
             try_io!(self.output.write_str(" "));
         }
         for i in range(0, self.logical_line.tokens.len()) {
-            try_io!(self.output.write_str(format!("{}", token::to_str(&self.logical_line.tokens.get(i).token_and_span.tok)).as_slice()));
+            let curr_tok = &self.logical_line.tokens.get(i).token_and_span.tok;
+            try_io!(self.output.write_str(format!("{}", token::to_str(curr_tok)).as_slice()));
+
+            // collapse empty blocks in match arms
+            if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() -1) &&
+                &self.logical_line.tokens.get(i+1).token_and_span.tok == &token::RBRACE {
+                continue;
+            }
             for _ in range(0, self.logical_line.whitespace_after(i)) {
                 try_io!(self.output.write_str(" "));
             }
