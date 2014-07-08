@@ -1,0 +1,13 @@
+[package]
+
+name = "rustfmt"
+version = "0.0.1"
+readme = "README.md"
+authors = ["Patrick Walton <pcwalton@mozilla.com>", "Jeff Olson <olson.jeffery@gmail.com>"]
+tags = ["util"]
+
+[[bin]]
+
+name = "rustfmt"
+path = "src/main.rs"
+

@@ -96,3 +96,4 @@ i686-pc-mingw32/
 /build
 /bin
 /doc
+/target
