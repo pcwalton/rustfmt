@@ -1,5 +1,5 @@
 // rustfmt/main.rs
-#![crate_id="http://github.com/pcwalton/rustfmt#rustfmt:0.0.1"]
+#![crate_name="rustfmt"]
 #![desc = "Rust code formatter"]
 #![license = "MIT"]
 #![feature(macro_rules)]
