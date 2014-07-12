@@ -1,0 +1,2 @@
+Patrick Walton <pcwalton@mozilla.com>
+Jeff Olson <olson.jeffery@gmail.com>
