@@ -18,7 +18,7 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// rustfmt/main.rs
+// src/main.rs
 
 #![crate_name="rustfmt"]
 #![desc = "Rust code formatter"]
@@ -31,6 +31,7 @@ use std::io;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
+use rustfmt::Formatter;
 
 mod rustfmt;
 #[cfg(test)]
@@ -46,7 +47,7 @@ pub fn main() {
     let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
     let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
     let mut stdout = io::stdio::stdout();
-    let mut formatter = rustfmt::Formatter::new(lexer, &mut stdout);
+    let mut formatter = Formatter::new(lexer, &mut stdout);
 
     loop {
         match formatter.next_token() {

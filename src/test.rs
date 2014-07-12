@@ -18,9 +18,9 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// rustfmt/test.rs
+// src/test.rs
 
-use rustfmt;
+use rustfmt::Formatter;
 
 use std::io::MemWriter;
 use std::str;
@@ -35,7 +35,7 @@ fn test_rustfmt(source: &str) -> String {
     let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
     let mut output = MemWriter::new();
     {
-        let mut formatter = rustfmt::Formatter::new(lexer, &mut output);
+        let mut formatter = Formatter::new(lexer, &mut output);
         loop {
             match formatter.next_token() {
                 Ok(true) => {
