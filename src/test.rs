@@ -20,33 +20,29 @@
 
 // src/test.rs
 
-use rustfmt::Formatter;
-
 use std::io::MemWriter;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
+use util::extract_tokens;
+
+use transform::transform_tokens;
+use format::Formatter;
 
 fn test_rustfmt(source: &str) -> String {
-
     // nothing special
     let session = parse::new_parse_sess();
     let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
-    let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
+    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
     let mut output = MemWriter::new();
     {
-        let mut formatter = Formatter::new(lexer, &mut output);
-        loop {
-            match formatter.next_token() {
-                Ok(true) => {
-                    match formatter.parse_production() {
-                        Err(e) => fail!(e),
-                        _ => {}
-                    }
-                },
-                Ok(false) => break,
-                Err(e) => fail!(e)
-            }
+        let all_tokens = extract_tokens(&mut lexer);
+        match transform_tokens(all_tokens) {
+            Ok(out_tokens) => {
+                let formatter = Formatter::new(out_tokens, &mut output);
+                formatter.process();
+            },
+            Err(e) => fail!("Error in trasformer: {}", e)
         }
     }
     str::from_utf8(output.unwrap().as_slice()).unwrap().to_string()
@@ -75,11 +71,10 @@ fn main() {
 fn adds_newline_after_doc_comments() {
     let result = test_rustfmt("/// The Main function
 fn main() {}");
-    assert_eq!(result,
-"/// The Main function
+    assert_eq!("/// The Main function
 fn main() {
 }
-".to_string());
+".to_string(), result);
 }
 
 #[test]
@@ -112,7 +107,6 @@ use foo;
 mod rustfmt;
 #[cfg(test)]
 mod test;
-/// The Main Function
 pub fn main() {
     foo();
 }

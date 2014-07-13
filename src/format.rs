@@ -18,11 +18,11 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// src/rustfmt.rs
+// src/transform.rs
 
 use std::io::Writer;
 
-use syntax::parse::lexer::{StringReader, TokenAndSpan};
+use syntax::parse::lexer::{TokenAndSpan, Reader};
 use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
@@ -140,10 +140,10 @@ impl LogicalLine {
 
         for i in range(0, self.tokens.len()) {
             self.tokens.get_mut(i).x_pos = x_pos;
-            x_pos += self.tokens.get(i).length();
+            x_pos += self.tokens[i].length();
 
             if i < self.tokens.len() - 1 &&
-                    self.tokens.get(i).whitespace_needed_after(self.tokens.get(i + 1)) {
+                    self.tokens[i].whitespace_needed_after(&self.tokens[i + 1]) {
                 x_pos += 1;
             }
         }
@@ -154,8 +154,8 @@ impl LogicalLine {
             return 0
         }
 
-        self.tokens.get(index + 1).x_pos - (self.tokens.get(index).x_pos +
-                                            self.tokens.get(index).length())
+        self.tokens[index + 1].x_pos - (self.tokens[index].x_pos +
+                                            self.tokens[index].length())
     }
 
     fn postindentation(&self) -> i32 {
@@ -172,38 +172,63 @@ impl LogicalLine {
 }
 
 pub struct Formatter<'a> {
-    lexer: StringReader<'a>,
+    in_toknspans: Vec<TokenAndSpan>,
+    curr_idx: uint,
     indent: i32,
     logical_line: LogicalLine,
     last_token: Token,
     second_previous_token: Token,
     newline_after_comma: bool,
     newline_after_brace: bool,
+    in_attribute: bool,
     output: &'a mut Writer
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new<'a>(lexer: StringReader<'a>, output: &'a mut Writer) -> Formatter<'a> {
+    pub fn new<'a>(in_toknspans: Vec<TokenAndSpan>, output: &'a mut Writer) -> Formatter<'a> {
         Formatter {
-            lexer: lexer,
+            in_toknspans: in_toknspans,
+            curr_idx: 0,
             indent: 0,
             logical_line: LogicalLine::new(),
             last_token: token::SEMI,
             second_previous_token: token::SEMI,
             newline_after_comma: false,
             newline_after_brace: true,
+            in_attribute: false,
             output: output
         }
     }
 
-    fn token_ends_logical_line(&self, line_token: &LineToken) -> bool {
-        use syntax::parse::lexer::Reader;
+    pub fn process(mut self) {
+        loop {
+            match self.next_token() {
+                Ok(true) => {
+                    match self.parse_production() {
+                        Err(e) => fail!(e),
+                        _ => {}
+                    }
+                },
+                Ok(false) => break,
+                Err(e) => fail!(e)
+            }
+        }
+    }
+    
+    fn curr_tok(&'a self) -> &'a TokenAndSpan {
+        &self.in_toknspans[self.curr_idx]
+    }
 
+    fn is_eof(&'a self) -> bool {
+        self.in_toknspans.len() == self.curr_idx
+    }
+
+    fn token_ends_logical_line(&self, line_token: &LineToken) -> bool {
         match line_token.token_and_span.tok {
             token::SEMI => true,
             token::RBRACE => {
-                match self.lexer.peek() {
-                    TokenAndSpan { tok: token::COMMA, sp: _ } => {
+                match self.curr_tok() {
+                    &TokenAndSpan { tok: token::COMMA, sp: _ } => {
                         false
                     }
                     _ => true
@@ -211,13 +236,15 @@ impl<'a> Formatter<'a> {
             },
             token::COMMA => self.newline_after_comma,
             token::LBRACE => {
-                match self.lexer.peek() {
-                    TokenAndSpan { tok: token::RBRACE, sp: _ } => {
+                match self.curr_tok() {
+                    &TokenAndSpan { tok: token::RBRACE, sp: _ } => {
                         false
                     }
                     _ => self.newline_after_brace
                 }
             },
+            token::DOC_COMMENT(_) => true,
+            token::RBRACKET => self.in_attribute,
             _ => false,
         }
     }
@@ -318,13 +345,15 @@ impl<'a> Formatter<'a> {
 
     fn parse_attribute(&mut self) -> FormatterResult<bool> {
         // Parse until we find a ']'.
+        self.in_attribute = true;
         let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACKET));
-        try!(self.flush_line());
+        //try!(self.flush_line());
         return Ok(result);
     }
 
     pub fn parse_production(&mut self) -> FormatterResult<bool> {
         let production_to_parse;
+        // TRANSFORM
         match self.last_token {
             token::IDENT(..) if token::is_keyword(keywords::Match, &self.last_token) => {
                 production_to_parse = MatchProduction;
@@ -335,10 +364,6 @@ impl<'a> Formatter<'a> {
             token::LBRACE => production_to_parse = BracesProduction,
             token::LPAREN => production_to_parse = ParenthesesProduction,
             token::POUND => production_to_parse = AttributeProduction,
-            token::DOC_COMMENT(_) => {
-                try!(self.flush_line());
-                return Ok(true);
-            },
             _ => return Ok(true),
         }
 
@@ -353,29 +378,41 @@ impl<'a> Formatter<'a> {
 
     pub fn next_token(&mut self) -> FormatterResult<bool> {
         use syntax::parse::lexer::Reader;
-
         loop {
-            if self.lexer.is_eof() {
+            // this first half of the function is actually
+            // the "after parse_production()" section
+
+            if self.is_eof() {
                 return Ok(false);
             }
 
-            let next_token = self.lexer.peek();
-            let next_tok_copy = next_token.tok.clone();
-            let line_token = LineToken::new(next_token);
-            if self.token_starts_logical_line(&line_token) && self.logical_line.tokens.len() > 0 {
+            let current_line_token = LineToken::new(self.curr_tok().clone());
+            // FORMAT check if the current token starts a logical line
+            // (that is, the previous token would be the end..
+            if self.token_starts_logical_line(&current_line_token) && self.logical_line.tokens.len() > 0 {
+                // if so, we flush the tokens in the current logical
+                // line to the output Writer
                 try!(self.flush_line());
                 continue;
             }
-            self.second_previous_token = self.last_token.clone();
-            self.last_token = next_tok_copy;
 
+            // if we are starting a new line, then bump out indent
             if self.logical_line.tokens.len() == 0 {
-                self.indent += line_token.preindentation();
+                self.indent += current_line_token.preindentation();
             }
 
-            drop(self.lexer.next_token());
-            let token_ends_logical_line = self.token_ends_logical_line(&line_token);
-            self.logical_line.tokens.push(line_token);
+            // this is the actual token advancement, ie the "first-half"
+            // with the subsequent call to "parse_production()" sandwiched
+            // between
+
+            // TRANSFORM
+            let curr_tok_copy = self.curr_tok().clone();
+            self.curr_idx += 1;
+            let token_ends_logical_line = self.token_ends_logical_line(&current_line_token);
+            // TRANSFORM set the previous token buffers
+            self.second_previous_token = self.last_token.clone();
+            self.last_token = curr_tok_copy.tok;
+            self.logical_line.tokens.push(current_line_token);
             if token_ends_logical_line {
                 try!(self.flush_line());
             }
@@ -386,23 +423,24 @@ impl<'a> Formatter<'a> {
 
     fn flush_line(&mut self) -> FormatterResult<()> {
 
+        self.in_attribute = false;
         self.logical_line.layout(self.indent);
 
         for _ in range(0, self.indent) {
             try_io!(self.output.write_str(" "));
         }
         for i in range(0, self.logical_line.tokens.len()) {
-            let curr_tok = &self.logical_line.tokens.get(i).token_and_span.tok;
+            let curr_tok = &self.logical_line.tokens[i].token_and_span.tok;
             try_io!(self.output.write_str(format!("{}", token::to_string(curr_tok)).as_slice()));
 
             // collapse empty blocks in match arms
             if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() -1) &&
-                &self.logical_line.tokens.get(i+1).token_and_span.tok == &token::RBRACE {
+                &self.logical_line.tokens[i+1].token_and_span.tok == &token::RBRACE {
                 continue;
             }
             // no whitespace after right-brackets, before comma in match arm
             if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() -1) &&
-                &self.logical_line.tokens.get(i+1).token_and_span.tok == &token::COMMA {
+                &self.logical_line.tokens[i+1].token_and_span.tok == &token::COMMA {
                 continue;
             }
             for _ in range(0, self.logical_line.whitespace_after(i)) {

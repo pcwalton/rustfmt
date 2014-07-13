@@ -18,48 +18,31 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// src/main.rs
+// src/transform.rs
 
-#![crate_name="rustfmt"]
-#![desc = "Rust code formatter"]
-#![license = "MIT"]
-#![feature(macro_rules)]
+use syntax::parse::lexer::{TokenAndSpan};
+use syntax::parse::token;
 
-extern crate syntax;
+pub type TransformerResult<T> = Result<T, String>;
 
-use std::io;
-use std::str;
-use syntax::parse::lexer;
-use syntax::parse;
+pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>) -> TransformerResult<Vec<TokenAndSpan>> {
+    let mut out_tokens = Vec::new();
+    let mut curr_idx = 0;
+    let in_len = in_toknspans.len();
+    loop {
+        if curr_idx >= in_len {
+            break
+        }
 
-use transform::transform_tokens;
-use format::Formatter;
-use util::extract_tokens;
+        let current_token = &in_toknspans[curr_idx];
 
-mod transform;
-mod format;
-mod util;
-#[cfg(test)]
-mod test;
-
-/// The Main Function
-pub fn main() {
-    let source = io::stdin().read_to_end().unwrap();
-    let source = str::from_utf8(source.as_slice()).unwrap();
-
-    // nothing special
-    let session = parse::new_parse_sess();
-    let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
-    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
-    let mut stdout = io::stdio::stdout();
-    {
-        let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens) {
-            Ok(out_tokens) => {
-                let formatter = Formatter::new(out_tokens, &mut stdout);
-                formatter.process();
-            },
-            Err(e) => fail!("Error in trasformer: {}", e)
+        match current_token {
+            &TokenAndSpan { tok: token::WS, sp: _ } => curr_idx += 1,
+            t => {
+                out_tokens.push(t.clone());
+                curr_idx += 1;
+            }
         }
     }
+    Ok(out_tokens)
 }
