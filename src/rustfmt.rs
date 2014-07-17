@@ -11,7 +11,7 @@ macro_rules! try_io(
     ($e:expr) => (match $e {
         Ok(_) => {},
         Err(err) => return Err(
-                format!("Err in Formatter: {}: '{}' details: {}", err.to_str(), err.desc, err.detail))
+                format!("Err in Formatter: {}: '{}' details: {}", err.to_string(), err.desc, err.detail))
     })
 )
 
@@ -91,7 +91,7 @@ impl LineToken {
     }
 
     fn length(&self) -> i32 {
-        token::to_str(&self.token_and_span.tok).len() as i32
+        token::to_string(&self.token_and_span.tok).len() as i32
     }
 
     fn preindentation(&self) -> i32 {
@@ -373,7 +373,7 @@ impl<'a> Formatter<'a> {
         }
         for i in range(0, self.logical_line.tokens.len()) {
             let curr_tok = &self.logical_line.tokens.get(i).token_and_span.tok;
-            try_io!(self.output.write_str(format!("{}", token::to_str(curr_tok)).as_slice()));
+            try_io!(self.output.write_str(format!("{}", token::to_string(curr_tok)).as_slice()));
 
             // collapse empty blocks in match arms
             if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() -1) &&
