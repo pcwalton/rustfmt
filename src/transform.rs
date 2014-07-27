@@ -20,12 +20,21 @@
 
 // src/transform.rs
 
+use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
 use syntax::parse::token;
 
 pub type TransformerResult<T> = Result<T, String>;
 
-pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>) -> TransformerResult<Vec<TokenAndSpan>> {
+#[allow(dead_code)]
+pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
+    use std::str::StrSlice;
+    let newlines: Vec<(uint, uint)> = ws_str.match_indices("\n").collect();
+    let newline_count = newlines.len();
+    newline_count > 1
+}
+
+pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>, span_handler: &SpanHandler) -> TransformerResult<Vec<TokenAndSpan>> {
     let mut out_tokens = Vec::new();
     let mut curr_idx = 0;
     let in_len = in_toknspans.len();
@@ -37,7 +46,14 @@ pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>) -> TransformerResult<Ve
         let current_token = &in_toknspans[curr_idx];
 
         match current_token {
-            &TokenAndSpan { tok: token::WS, sp: _ } => curr_idx += 1,
+            t @ &TokenAndSpan { tok: token::WS, sp: _ } => {
+                let ws_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
+                let is_n = ws_str == "\n".to_string();
+                let is_r = ws_str == "\r".to_string();
+                let is_rn = ws_str == "\r\n".to_string();
+                println!("WS: '{}' n? {} r? {} rn? {}", ws_str, is_n, is_r, is_rn);
+                curr_idx += 1;
+            }
             t => {
                 out_tokens.push(t.clone());
                 curr_idx += 1;

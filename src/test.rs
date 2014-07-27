@@ -37,7 +37,7 @@ fn test_rustfmt(source: &str) -> String {
     let mut output = MemWriter::new();
     {
         let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens) {
+        match transform_tokens(all_tokens, &session.span_diagnostic) {
             Ok(out_tokens) => {
                 let formatter = Formatter::new(out_tokens, &mut output);
                 formatter.process();
@@ -162,4 +162,39 @@ pub fn main() {
 ";
 
     assert_eq!(input.to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn should_collapse_multiple_blank_lines_into_one() {
+    let input = "fn foo() {
+
+
+}
+";
+    assert_eq!("
+fn foo() {
+
+}
+".to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn has_blank_line_should_return_true_for_ws_with_more_than_one_unix_line_ending() {
+    use transform::has_blank_line;
+    let ws_str = "  \n  \n";
+    assert_eq!(true, has_blank_line(ws_str));
+}
+
+#[test]
+fn has_blank_line_should_return_false_for_ws_with_single_unix_line_ending() {
+    use transform::has_blank_line;
+    let ws_str = "  \n";
+    assert_eq!(false, has_blank_line(ws_str));
+}
+
+#[test]
+fn has_blank_line_should_return_false_for_just_spaces_and_tabs() {
+    use transform::has_blank_line;
+    let ws_str = "  \t ";
+    assert_eq!(false, has_blank_line(ws_str));
 }

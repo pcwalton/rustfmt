@@ -54,7 +54,7 @@ pub fn main() {
     let mut stdout = io::stdio::stdout();
     {
         let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens) {
+        match transform_tokens(all_tokens, &session.span_diagnostic) {
             Ok(out_tokens) => {
                 let formatter = Formatter::new(out_tokens, &mut stdout);
                 formatter.process();
