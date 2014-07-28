@@ -226,3 +226,23 @@ fn is_token_works() {
     assert!(left_brace.is_token(&token::LBRACE) == true);
     assert!(left_brace.is_token(&token::RBRACE) == false);
 }
+
+#[test]
+fn regular_line_comments_on_their_own_line_are_preserved() {
+    let input = "// standalone.. ends line
+pub fn main() {
+    /* blah
+     * blah blah blah
+     * blah blah blah
+     * ends line
+    */
+    foo(); // ends line
+    1 + /* doesn't end line! */ 42
+}
+";
+    assert_eq!(input.to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn contains_newline_returns_false_for_ws_token_without_newlines() {
+}

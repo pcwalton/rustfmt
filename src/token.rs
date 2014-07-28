@@ -20,13 +20,32 @@
 
 // src/token.rs
 
+use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{StringReader, TokenAndSpan, Reader};
 use syntax::parse::token;
 
 #[deriving(Clone)]
 pub enum TransformedToken {
     LexerVal(TokenAndSpan),
-    BlankLine
+    BlankLine,
+    Comment(String, bool, bool)
+}
+
+impl TransformedToken {
+    pub fn contains_newline(&self, sh: &SpanHandler) -> bool {
+        match self {
+            &BlankLine => true,
+            &LexerVal(ref t) => {
+                if t.tok == token::WS {
+                    let comment_str = sh.cm.span_to_snippet(t.sp).unwrap();
+                    comment_str.as_slice().contains("\n")
+                } else {
+                    false
+                }
+            },
+            &Comment(ref c, _, _) => c.as_slice().contains("\n")
+        }
+    }
 }
 
 pub fn extract_tokens(lexer: &mut StringReader) -> Vec<TransformedToken> {

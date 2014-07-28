@@ -27,7 +27,7 @@ use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
 
-use token::{LexerVal, TransformedToken, BlankLine};
+use token::{Comment, LexerVal, TransformedToken, BlankLine};
 
 macro_rules! try_io(
     ($e:expr) => (match $e {
@@ -76,13 +76,15 @@ impl LineToken {
     }
 
     fn whitespace_needed_after(&self, next: &LineToken) -> bool {
-        let curr_tok = match &self.tok {
-            &LexerVal(ref token_and_span) => token_and_span.tok.clone(),
-            _ => token::SEMI
+        let (curr_tok, _curr_comment_ends_line) = match &self.tok {
+            &LexerVal(ref token_and_span) => (token_and_span.tok.clone(), false),
+            &Comment(_, _, ends_line) => (token::COMMENT, ends_line),
+            _ => (token::WS, false)
         };
-        let next_tok = match &next.tok {
-            &LexerVal(ref token_and_span) => token_and_span.tok.clone(),
-            _ => token::SEMI
+        let (next_tok, _next_comment_ends_line) = match &next.tok {
+            &LexerVal(ref token_and_span) => (token_and_span.tok.clone(), false),
+            &Comment(_, _, ends_line) => (token::COMMENT, ends_line),
+            _ => (token::WS, false)
         };
         match (&curr_tok, &next_tok) {
             (&token::IDENT(..), &token::IDENT(..)) => true,
@@ -129,6 +131,8 @@ impl LineToken {
             (&token::FAT_ARROW, _) | (_, &token::FAT_ARROW) => true,
             (&token::LBRACE, _) | (_, &token::LBRACE) => true,
             (&token::RBRACE, _) | (_, &token::RBRACE) => true,
+            (&token::SEMI, _) | (_, &token::COMMENT) => true,
+            (&token::COMMENT, _) => true,
             _ => false,
         }
     }
@@ -264,7 +268,12 @@ impl<'a> Formatter<'a> {
         match &line_token.tok {
             &LexerVal(ref token_and_span) => {
                 match token_and_span.tok {
-                    token::SEMI => true,
+                    token::SEMI => {
+                        match self.curr_tok() {
+                            &Comment(_, starts_line, _) => starts_line,
+                            _ => true
+                        }
+                    },
                     token::RBRACE => {
                         match self.curr_tok() {
                             &LexerVal(TokenAndSpan { tok: token::COMMA, sp: _ }) => {
@@ -291,7 +300,8 @@ impl<'a> Formatter<'a> {
                     _ => false,
                 }
             },
-            &BlankLine => true
+            &BlankLine => true,
+            &Comment(_, _, ends_line) => ends_line
         }
     }
 
@@ -308,7 +318,8 @@ impl<'a> Formatter<'a> {
                     _ => false
                 }
             },
-            &BlankLine => true
+            &BlankLine => true,
+            &Comment(_, starts_line, _) => starts_line,
         }
     }
 
@@ -452,7 +463,8 @@ impl<'a> Formatter<'a> {
             self.second_previous_token = self.last_token.clone();
             self.last_token = match curr_tok_copy {
                 LexerVal(token_and_span) => token_and_span.tok,
-                BlankLine => token::WS
+                BlankLine => token::WS,
+                Comment(_, _, _) => token::COMMENT
             };
             self.logical_line.tokens.push(current_line_token);
             if token_ends_logical_line {
@@ -492,6 +504,12 @@ impl<'a> Formatter<'a> {
                         try_io!(self.output.write_str(" "));
                     }
                 },
+                &LineToken{ tok: Comment(ref comment_str, _, _), x_pos: _ } => {
+                    try_io!(self.output.write_str(comment_str.as_slice()));
+                    for _ in range(0, self.logical_line.whitespace_after(i)) {
+                        try_io!(self.output.write_str(" "));
+                    }
+                }
                 _ => {}
             }
         }
