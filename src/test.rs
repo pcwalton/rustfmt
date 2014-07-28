@@ -242,7 +242,3 @@ pub fn main() {
 ";
     assert_eq!(input.to_string(), test_rustfmt(input));
 }
-
-#[test]
-fn contains_newline_returns_false_for_ws_token_without_newlines() {
-}
