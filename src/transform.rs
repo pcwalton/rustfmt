@@ -36,16 +36,16 @@ pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
     newline_count > 1
 }
 
-pub fn transform_tokens(in_toknspans: &[TransformedToken], span_handler: &SpanHandler) -> TransformerResult<Vec<TransformedToken>> {
+pub fn transform_tokens(input_tokens: &[TransformedToken], span_handler: &SpanHandler) -> TransformerResult<Vec<TransformedToken>> {
     let mut out_tokens = Vec::new();
     let mut curr_idx = 0;
-    let in_len = in_toknspans.len();
+    let in_len = input_tokens.len();
     loop {
         if curr_idx >= in_len {
             break
         }
 
-        let current_token = &in_toknspans[curr_idx];
+        let current_token = &input_tokens[curr_idx];
 
         match current_token {
             &LexerVal(ref current_token) => {
@@ -58,7 +58,7 @@ pub fn transform_tokens(in_toknspans: &[TransformedToken], span_handler: &SpanHa
                         curr_idx += 1;
                     },
                     t @ &TokenAndSpan { tok: token::COMMENT, sp: _ } => {
-                        handle_comment(in_toknspans, &mut out_tokens, &mut curr_idx, span_handler, t);
+                        handle_comment(input_tokens, &mut out_tokens, &mut curr_idx, span_handler, t);
                     }
                     t => {
                         out_tokens.push(LexerVal(t.clone()));
@@ -75,22 +75,22 @@ pub fn transform_tokens(in_toknspans: &[TransformedToken], span_handler: &SpanHa
     Ok(out_tokens)
 }
 
-fn handle_comment(in_toknspans: &[TransformedToken], out_tokens: &mut Vec<TransformedToken>, curr_idx: &mut uint, span_handler: &SpanHandler, t: &TokenAndSpan) {
+fn handle_comment(input_tokens: &[TransformedToken], out_tokens: &mut Vec<TransformedToken>, curr_idx: &mut uint, span_handler: &SpanHandler, t: &TokenAndSpan) {
     let curr_idx_cpy = *curr_idx;
     let comment_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
     let starts_line = {
         let last_token = if curr_idx_cpy == 0 {
-            &in_toknspans[0]
+            &input_tokens[0]
         } else {
-            &in_toknspans[curr_idx_cpy - 1]
+            &input_tokens[curr_idx_cpy - 1]
         };
         last_token.contains_newline(span_handler)
     };
     let ends_line = {
-        let next_token = if curr_idx_cpy + 1 >= in_toknspans.len() {
-            &in_toknspans[in_toknspans.len() - 1]
+        let next_token = if curr_idx_cpy + 1 >= input_tokens.len() {
+            &input_tokens[input_tokens.len() - 1]
         } else {
-            &in_toknspans[curr_idx_cpy + 1]
+            &input_tokens[curr_idx_cpy + 1]
         };
         next_token.contains_newline(span_handler)
     };

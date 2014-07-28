@@ -213,7 +213,7 @@ impl LogicalLine {
 }
 
 pub struct Formatter<'a> {
-    in_toknspans: &'a [TransformedToken],
+    input_tokens: &'a [TransformedToken],
     curr_idx: uint,
     indent: i32,
     logical_line: LogicalLine,
@@ -226,9 +226,9 @@ pub struct Formatter<'a> {
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new<'a>(in_toknspans: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
+    pub fn new<'a>(input_tokens: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
         Formatter {
-            in_toknspans: in_toknspans,
+            input_tokens: input_tokens,
             curr_idx: 0,
             indent: 0,
             logical_line: LogicalLine::new(),
@@ -257,11 +257,11 @@ impl<'a> Formatter<'a> {
     }
     
     fn curr_tok(&'a self) -> &'a TransformedToken {
-        &self.in_toknspans[self.curr_idx]
+        &self.input_tokens[self.curr_idx]
     }
 
     fn is_eof(&'a self) -> bool {
-        self.in_toknspans.len() == self.curr_idx
+        self.input_tokens.len() == self.curr_idx
     }
 
     fn token_ends_logical_line(&self, line_token: &LineToken) -> bool {
@@ -408,7 +408,6 @@ impl<'a> Formatter<'a> {
         // Parse until we find a ']'.
         self.in_attribute = true;
         let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACKET));
-        //try!(self.flush_line());
         return Ok(result);
     }
 
@@ -455,9 +454,7 @@ impl<'a> Formatter<'a> {
                 self.indent += current_line_token.preindentation();
             }
 
-            let curr_tok_copy = {
-                self.curr_tok().clone()
-            };
+            let curr_tok_copy = self.curr_tok().clone();
             self.curr_idx += 1;
             let token_ends_logical_line = self.token_ends_logical_line(&current_line_token);
             self.second_previous_token = self.last_token.clone();
@@ -491,12 +488,12 @@ impl<'a> Formatter<'a> {
                     try_io!(self.output.write_str(format!("{}", token::to_string(curr_tok)).as_slice()));
 
                     // collapse empty blocks in match arms
-                    if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() -1) &&
+                    if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() - 1) &&
                         self.logical_line.tokens[i+1].is_token(&token::RBRACE) {
                         continue;
                     }
                     // no whitespace after right-brackets, before comma in match arm
-                    if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() -1) &&
+                    if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() - 1) &&
                         self.logical_line.tokens[i+1].is_token(&token::COMMA) {
                         continue;
                     }
