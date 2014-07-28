@@ -1,5 +1,7 @@
 ## `rustfmt` -- code formatting Rust
 
+`rustfmt` is distributed under the terms of the "MIT License." See `LICENSE.txt` in the root of this repository for more information.
+
 ### Building `rustfmt`
 
 With a recent build of `rustc` and `cargo` installed:

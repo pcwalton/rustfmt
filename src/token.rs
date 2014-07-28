@@ -18,48 +18,46 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// src/main.rs
+// src/token.rs
 
-#![crate_name="rustfmt"]
-#![desc = "Rust code formatter"]
-#![license = "MIT"]
-#![feature(macro_rules)]
+use syntax::diagnostic::SpanHandler;
+use syntax::parse::lexer::{StringReader, TokenAndSpan, Reader};
+use syntax::parse::token;
 
-extern crate syntax;
+#[deriving(Clone)]
+pub enum TransformedToken {
+    LexerVal(TokenAndSpan),
+    BlankLine,
+    Comment(String, bool, bool)
+}
 
-use std::io;
-use std::str;
-use syntax::parse::lexer;
-use syntax::parse;
-
-use transform::transform_tokens;
-use format::Formatter;
-use token::extract_tokens;
-
-mod transform;
-mod format;
-mod token;
-#[cfg(test)]
-mod test;
-
-/// The Main Function
-pub fn main() {
-    let source = io::stdin().read_to_end().unwrap();
-    let source = str::from_utf8(source.as_slice()).unwrap();
-
-    // nothing special
-    let session = parse::new_parse_sess();
-    let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
-    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
-    let mut stdout = io::stdio::stdout();
-    {
-        let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens.as_slice(), &session.span_diagnostic) {
-            Ok(out_tokens) => {
-                let formatter = Formatter::new(out_tokens.as_slice(), &mut stdout);
-                formatter.process();
+impl TransformedToken {
+    pub fn contains_newline(&self, sh: &SpanHandler) -> bool {
+        match self {
+            &BlankLine => true,
+            &LexerVal(ref t) => {
+                if t.tok == token::WS {
+                    let comment_str = sh.cm.span_to_snippet(t.sp).unwrap();
+                    comment_str.as_slice().contains("\n")
+                } else {
+                    false
+                }
             },
-            Err(e) => fail!("Error in transformer: {}", e)
+            &Comment(ref c, _, _) => c.as_slice().contains("\n")
         }
     }
+}
+
+pub fn extract_tokens(lexer: &mut StringReader) -> Vec<TransformedToken> {
+    let mut in_toknspans = Vec::new();
+    loop {
+        match lexer.next_token() {
+            t @ TokenAndSpan{tok: token::EOF, sp: _} => {
+                in_toknspans.push(LexerVal(t));
+                break;
+            },
+            t @ _ => in_toknspans.push(LexerVal(t))
+        }
+    }
+    in_toknspans
 }

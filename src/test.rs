@@ -1,31 +1,49 @@
-// rustfmt/test.rs
-use rustfmt;
+// Copyright (c) 2014 Mozilla Foundation
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// * The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+// SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// src/test.rs
 
 use std::io::MemWriter;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
+use syntax::parse::token;
+use token::extract_tokens;
+
+use transform::transform_tokens;
+use format::{LineToken, Formatter};
 
 fn test_rustfmt(source: &str) -> String {
-
     // nothing special
     let session = parse::new_parse_sess();
     let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
-    let lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
+    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
     let mut output = MemWriter::new();
     {
-        let mut formatter = rustfmt::Formatter::new(lexer, &mut output);
-        loop {
-            match formatter.next_token() {
-                Ok(true) => {
-                    match formatter.parse_production() {
-                        Err(e) => fail!(e),
-                        _ => {}
-                    }
-                },
-                Ok(false) => break,
-                Err(e) => fail!(e)
-            }
+        let all_tokens = extract_tokens(&mut lexer);
+        match transform_tokens(all_tokens.as_slice(), &session.span_diagnostic) {
+            Ok(out_tokens) => {
+                let formatter = Formatter::new(out_tokens.as_slice(), &mut output);
+                formatter.process();
+            },
+            Err(e) => fail!("Error in trasformer: {}", e)
         }
     }
     str::from_utf8(output.unwrap().as_slice()).unwrap().to_string()
@@ -54,11 +72,10 @@ fn main() {
 fn adds_newline_after_doc_comments() {
     let result = test_rustfmt("/// The Main function
 fn main() {}");
-    assert_eq!(result,
-"/// The Main function
+    assert_eq!("/// The Main function
 fn main() {
 }
-".to_string());
+".to_string(), result);
 }
 
 #[test]
@@ -91,7 +108,6 @@ use foo;
 mod rustfmt;
 #[cfg(test)]
 mod test;
-/// The Main Function
 pub fn main() {
     foo();
 }
@@ -146,5 +162,83 @@ pub fn main() {
 }
 ";
 
+    assert_eq!(input.to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn should_preserve_single_empty_lines() {
+    let input = "use foo;
+
+fn foo() {
+
+}
+";
+    assert_eq!("use foo;
+
+fn foo() {
+
+}
+".to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn should_collapse_multiple_blank_lines_into_one() {
+    let input = "fn foo() {
+
+
+}
+";
+    assert_eq!("fn foo() {
+
+}
+".to_string(), test_rustfmt(input));
+}
+
+#[test]
+fn has_blank_line_should_return_true_for_ws_with_more_than_one_unix_line_ending() {
+    use transform::has_blank_line;
+    let ws_str = "  \n  \n";
+    assert_eq!(true, has_blank_line(ws_str));
+}
+
+#[test]
+fn has_blank_line_should_return_false_for_ws_with_single_unix_line_ending() {
+    use transform::has_blank_line;
+    let ws_str = "  \n";
+    assert_eq!(false, has_blank_line(ws_str));
+}
+
+#[test]
+fn has_blank_line_should_return_false_for_just_spaces_and_tabs() {
+    use transform::has_blank_line;
+    let ws_str = "  \t ";
+    assert_eq!(false, has_blank_line(ws_str));
+}
+
+#[test]
+fn is_token_works() {
+    let source = "{}";
+    let session = parse::new_parse_sess();
+    let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
+    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
+    let all_tokens = extract_tokens(&mut lexer);
+    let left_brace = LineToken::new(all_tokens[0].clone());
+    assert!(left_brace.is_token(&token::LBRACE) == true);
+    assert!(left_brace.is_token(&token::RBRACE) == false);
+}
+
+#[test]
+fn regular_line_comments_on_their_own_line_are_preserved() {
+    let input = "// standalone.. ends line
+pub fn main() {
+    /* blah
+     * blah blah blah
+     * blah blah blah
+     * ends line
+    */
+    foo(); // ends line
+    1 + /* doesn't end line! */ 42
+}
+";
     assert_eq!(input.to_string(), test_rustfmt(input));
 }
