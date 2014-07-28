@@ -34,11 +34,11 @@ use syntax::parse;
 
 use transform::transform_tokens;
 use format::Formatter;
-use util::extract_tokens;
+use token::extract_tokens;
 
 mod transform;
 mod format;
-mod util;
+mod token;
 #[cfg(test)]
 mod test;
 
@@ -54,9 +54,9 @@ pub fn main() {
     let mut stdout = io::stdio::stdout();
     {
         let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens, &session.span_diagnostic) {
+        match transform_tokens(all_tokens.as_slice(), &session.span_diagnostic) {
             Ok(out_tokens) => {
-                let formatter = Formatter::new(out_tokens, &mut stdout);
+                let formatter = Formatter::new(out_tokens.as_slice(), &mut stdout);
                 formatter.process();
             },
             Err(e) => fail!("Error in trasformer: {}", e)

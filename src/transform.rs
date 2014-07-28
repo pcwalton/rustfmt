@@ -24,6 +24,8 @@ use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
 use syntax::parse::token;
 
+use token::{LexerVal, BlankLine, TransformedToken};
+
 pub type TransformerResult<T> = Result<T, String>;
 
 #[allow(dead_code)]
@@ -34,7 +36,7 @@ pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
     newline_count > 1
 }
 
-pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>, span_handler: &SpanHandler) -> TransformerResult<Vec<TokenAndSpan>> {
+pub fn transform_tokens(in_toknspans: &[TransformedToken], span_handler: &SpanHandler) -> TransformerResult<Vec<TransformedToken>> {
     let mut out_tokens = Vec::new();
     let mut curr_idx = 0;
     let in_len = in_toknspans.len();
@@ -46,14 +48,21 @@ pub fn transform_tokens(in_toknspans: Vec<TokenAndSpan>, span_handler: &SpanHand
         let current_token = &in_toknspans[curr_idx];
 
         match current_token {
-            t @ &TokenAndSpan { tok: token::WS, sp: _ } => {
-                let ws_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
-                let is_n = ws_str == "\n".to_string();
-                let is_r = ws_str == "\r".to_string();
-                let is_rn = ws_str == "\r\n".to_string();
-                println!("WS: '{}' n? {} r? {} rn? {}", ws_str, is_n, is_r, is_rn);
-                curr_idx += 1;
-            }
+            &LexerVal(ref current_token) => {
+                match current_token {
+                    t @ &TokenAndSpan { tok: token::WS, sp: _ } => {
+                        let ws_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
+                        if has_blank_line(ws_str.as_slice()) {
+                            out_tokens.push(BlankLine);
+                        }
+                        curr_idx += 1;
+                    }
+                    t => {
+                        out_tokens.push(LexerVal(t.clone()));
+                        curr_idx += 1;
+                    }
+                }
+            },
             t => {
                 out_tokens.push(t.clone());
                 curr_idx += 1;

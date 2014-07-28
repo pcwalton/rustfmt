@@ -24,10 +24,11 @@ use std::io::MemWriter;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
-use util::extract_tokens;
+use syntax::parse::token;
+use token::extract_tokens;
 
 use transform::transform_tokens;
-use format::Formatter;
+use format::{LineToken, Formatter};
 
 fn test_rustfmt(source: &str) -> String {
     // nothing special
@@ -37,9 +38,9 @@ fn test_rustfmt(source: &str) -> String {
     let mut output = MemWriter::new();
     {
         let all_tokens = extract_tokens(&mut lexer);
-        match transform_tokens(all_tokens, &session.span_diagnostic) {
+        match transform_tokens(all_tokens.as_slice(), &session.span_diagnostic) {
             Ok(out_tokens) => {
-                let formatter = Formatter::new(out_tokens, &mut output);
+                let formatter = Formatter::new(out_tokens.as_slice(), &mut output);
                 formatter.process();
             },
             Err(e) => fail!("Error in trasformer: {}", e)
@@ -165,14 +166,29 @@ pub fn main() {
 }
 
 #[test]
+fn should_preserve_single_empty_lines() {
+    let input = "use foo;
+
+fn foo() {
+
+}
+";
+    assert_eq!("use foo;
+
+fn foo() {
+
+}
+".to_string(), test_rustfmt(input));
+}
+
+#[test]
 fn should_collapse_multiple_blank_lines_into_one() {
     let input = "fn foo() {
 
 
 }
 ";
-    assert_eq!("
-fn foo() {
+    assert_eq!("fn foo() {
 
 }
 ".to_string(), test_rustfmt(input));
@@ -197,4 +213,16 @@ fn has_blank_line_should_return_false_for_just_spaces_and_tabs() {
     use transform::has_blank_line;
     let ws_str = "  \t ";
     assert_eq!(false, has_blank_line(ws_str));
+}
+
+#[test]
+fn is_token_works() {
+    let source = "{}";
+    let session = parse::new_parse_sess();
+    let filemap = parse::string_to_filemap(&session, source.to_string(), "<stdin>".to_string());
+    let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
+    let all_tokens = extract_tokens(&mut lexer);
+    let left_brace = LineToken::new(all_tokens[0].clone());
+    assert!(left_brace.is_token(&token::LBRACE) == true);
+    assert!(left_brace.is_token(&token::RBRACE) == false);
 }

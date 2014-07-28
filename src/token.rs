@@ -18,20 +18,26 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// src/util.rs
+// src/token.rs
 
 use syntax::parse::lexer::{StringReader, TokenAndSpan, Reader};
 use syntax::parse::token;
 
-pub fn extract_tokens(lexer: &mut StringReader) -> Vec<TokenAndSpan> {
+#[deriving(Clone)]
+pub enum TransformedToken {
+    LexerVal(TokenAndSpan),
+    BlankLine
+}
+
+pub fn extract_tokens(lexer: &mut StringReader) -> Vec<TransformedToken> {
     let mut in_toknspans = Vec::new();
     loop {
         match lexer.next_token() {
             t @ TokenAndSpan{tok: token::EOF, sp: _} => {
-                in_toknspans.push(t);
+                in_toknspans.push(LexerVal(t));
                 break;
             },
-            t @ _ => in_toknspans.push(t)
+            t @ _ => in_toknspans.push(LexerVal(t))
         }
     }
     in_toknspans
