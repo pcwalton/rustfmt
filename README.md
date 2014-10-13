@@ -31,8 +31,8 @@ This will give you a `rustfmt` or `main` binary that behaves as detailed below.
 * Reads from `stdin`
 * Lexes the string to ensure correctness
 * Prints the lexed code to `stdout` in an idiomatically arranged format
+* Preserves comments
 
 `rustfmt` does *not*:
 
-* Preserve comments
 * Lots of other stuff
