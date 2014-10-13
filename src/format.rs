@@ -61,7 +61,7 @@ impl LineToken {
             x_pos: 0,
         }
     }
-    
+
     pub fn is_token(&self, token: &token::Token) -> bool {
         match &self.tok {
             &LexerVal(ref t) => &t.tok == token,
@@ -222,7 +222,7 @@ pub struct Formatter<'a> {
     newline_after_comma: bool,
     newline_after_brace: bool,
     in_attribute: bool,
-    output: &'a mut Writer
+    output: &'a mut Writer + 'a
 }
 
 impl<'a> Formatter<'a> {
@@ -255,7 +255,7 @@ impl<'a> Formatter<'a> {
             }
         }
     }
-    
+
     fn curr_tok(&'a self) -> &'a TransformedToken {
         &self.input_tokens[self.curr_idx]
     }
@@ -444,7 +444,7 @@ impl<'a> Formatter<'a> {
             }
 
             let current_line_token = LineToken::new(self.curr_tok().clone());
-            
+
             if self.token_starts_logical_line(&current_line_token) && self.logical_line.tokens.len() > 0 {
                 try!(self.flush_line());
                 continue;
