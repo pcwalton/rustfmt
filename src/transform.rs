@@ -24,13 +24,14 @@ use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
 use syntax::parse::token;
 
-use token::{Comment, LexerVal, BlankLine, TransformedToken};
+use token::TransformedToken;
+use token::TransformedToken::{Comment, LexerVal, BlankLine};
 
 pub type TransformerResult<T> = Result<T, String>;
 
 #[allow(dead_code)]
 pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
-    use std::str::StrSlice;
+    use std::str::Str;
     let newlines: Vec<(uint, uint)> = ws_str.match_indices("\n").collect();
     let newline_count = newlines.len();
     newline_count > 1

@@ -27,7 +27,8 @@ use syntax::parse::token::Token;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
 
-use token::{Comment, LexerVal, TransformedToken, BlankLine};
+use token::TransformedToken;
+use token::TransformedToken::{Comment,LexerVal,BlankLine};
 
 macro_rules! try_io(
     ($e:expr) => (match $e {
