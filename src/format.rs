@@ -182,7 +182,7 @@ impl LogicalLine {
         }
 
         for i in range(0, self.tokens.len()) {
-            self.tokens.get_mut(i).x_pos = x_pos;
+            self.tokens.get_mut(i).unwrap().x_pos = x_pos;
             x_pos += self.tokens[i].length();
 
             if i < self.tokens.len() - 1 &&
@@ -229,7 +229,7 @@ pub struct Formatter<'a> {
     newline_after_comma: bool,
     newline_after_brace: bool,
     in_attribute: bool,
-    output: &'a mut Writer
+    output: &'a mut Writer+'a
 }
 
 impl<'a> Formatter<'a> {
@@ -492,7 +492,7 @@ impl<'a> Formatter<'a> {
             match &self.logical_line.tokens[i] {
                 &LineToken{ tok: LexerVal(ref token_and_span), x_pos: _ } => {
                     let curr_tok = &token_and_span.tok;
-                    try_io!(self.output.write_str(format!("{}", curr_tok)));
+                    try_io!(self.output.write_str(format!("{}", curr_tok).as_slice()));
 
                     // collapse empty blocks in match arms
                     if (curr_tok == &Token::OpenDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
