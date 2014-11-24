@@ -28,6 +28,7 @@ use syntax::parse::token::DelimToken;
 use syntax::parse::token::BinOpToken;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
+use syntax::print::pprust;
 
 use token::TransformedToken;
 use token::TransformedToken::{Comment,LexerVal,BlankLine};
@@ -492,7 +493,7 @@ impl<'a> Formatter<'a> {
             match &self.logical_line.tokens[i] {
                 &LineToken{ tok: LexerVal(ref token_and_span), x_pos: _ } => {
                     let curr_tok = &token_and_span.tok;
-                    try_io!(self.output.write_str(format!("{}", curr_tok).as_slice()));
+                    try_io!(self.output.write_str(format!("{}", pprust::token_to_string(curr_tok)).as_slice()));
 
                     // collapse empty blocks in match arms
                     if (curr_tok == &Token::OpenDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
