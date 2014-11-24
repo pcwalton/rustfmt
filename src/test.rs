@@ -43,7 +43,7 @@ fn test_rustfmt(source: &str) -> String {
                 let formatter = Formatter::new(out_tokens.as_slice(), &mut output);
                 formatter.process();
             },
-            Err(e) => fail!("Error in trasformer: {}", e)
+            Err(e) => panic!("Error in trasformer: {}", e)
         }
     }
     str::from_utf8(output.unwrap().as_slice()).unwrap().to_string()
@@ -148,12 +148,12 @@ pub fn main() {
             match formatter.next_token() {
                 Ok(true) => {
                     match formatter.parse_production() {
-                        Err(e) => fail!(e),
+                        Err(e) => panic!(e),
                         _ => {}
                     }
                 },
                 Ok(false) => break,
-                Err(e) => fail!(e)
+                Err(e) => panic!(e)
             }
         }
     }

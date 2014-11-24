@@ -246,12 +246,12 @@ impl<'a> Formatter<'a> {
             match self.next_token() {
                 Ok(true) => {
                     match self.parse_production() {
-                        Err(e) => fail!(e),
+                        Err(e) => panic!(e),
                         _ => {}
                     }
                 },
                 Ok(false) => break,
-                Err(e) => fail!(e)
+                Err(e) => panic!(e)
             }
         }
     }
