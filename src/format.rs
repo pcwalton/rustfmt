@@ -147,8 +147,7 @@ impl LineToken {
     fn length(&self) -> i32 {
         match &self.tok {
             &LexerVal(ref token_and_span) =>
-		format!("{}", token_and_span.tok).len() as i32,
-   //             token::to_string(&token_and_span.tok).len() as i32,
+		pprust::token_to_string(&token_and_span.tok).len() as i32,
             _ => 0
         }
     }

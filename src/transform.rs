@@ -22,7 +22,6 @@
 
 use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
-use syntax::parse::token;
 use syntax::parse::token::Token;
 
 use token::TransformedToken;
