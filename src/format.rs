@@ -24,6 +24,7 @@ use std::io::Writer;
 
 use syntax::parse::lexer::{TokenAndSpan, Reader};
 use syntax::parse::token::Token;
+use syntax::parse::token::DelimToken;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
 
@@ -88,52 +89,52 @@ impl LineToken {
             _ => (token::WS, false)
         };
         match (&curr_tok, &next_tok) {
-            (&token::IDENT(..), &token::IDENT(..)) => true,
-            (&token::IDENT(..), &token::NOT)
+            (&Token::IDENT(..), &Token::IDENT(..)) => true,
+            (&Token::IDENT(..), &Token::NOT)
                     if !token::is_any_keyword(&curr_tok) => {
                 // Macros.
                 false
             }
 
-            (&token::IDENT(..), _) if
+            (&Token::IDENT(..), _) if
                     token::is_keyword(keywords::If, &curr_tok) ||
                     token::is_keyword(keywords::As, &curr_tok) ||
                     token::is_keyword(keywords::Match, &curr_tok) => {
                 true
             }
-            (_, &token::IDENT(..))
+            (_, &Token::IDENT(..))
                     if token::is_keyword(keywords::If, &next_tok) => {
                 true
             }
 
-            (&token::COLON, _) => true,
-            (&token::COMMA, _) => true,
-            (&token::EQ, _) | (_, &token::EQ) => true,
-            (&token::LT, _) | (_, &token::LT) => true,
-            (&token::LE, _) | (_, &token::LE) => true,
-            (&token::EQEQ, _) | (_, &token::EQEQ) => true,
-            (&token::NE, _) | (_, &token::NE) => true,
-            (&token::GE, _) | (_, &token::GE) => true,
-            (&token::GT, _) | (_, &token::GT) => true,
-            (&token::ANDAND, _) | (_, &token::ANDAND) => true,
-            (&token::OROR, _) | (_, &token::OROR) => true,
-            (&token::TILDE, _) | (_, &token::TILDE) => true,
+            (&Token::COLON, _) => true,
+            (&Token::COMMA, _) => true,
+            (&Token::EQ, _) | (_, &Token::EQ) => true,
+            (&Token::LT, _) | (_, &Token::LT) => true,
+            (&Token::LE, _) | (_, &Token::LE) => true,
+            (&Token::EQEQ, _) | (_, &Token::EQEQ) => true,
+            (&Token::NE, _) | (_, &Token::NE) => true,
+            (&Token::GE, _) | (_, &Token::GE) => true,
+            (&Token::GT, _) | (_, &Token::GT) => true,
+            (&Token::ANDAND, _) | (_, &Token::ANDAND) => true,
+            (&Token::OROR, _) | (_, &Token::OROR) => true,
+            (&Token::TILDE, _) | (_, &Token::TILDE) => true,
 
-            (&token::LPAREN, _) => false,
-            (_, &token::RPAREN) => false,
-            (&token::BINOP(token::AND), _) => false,
+            (&Token::LPAREN, _) => false,
+            (_, &Token::RPAREN) => false,
+            (&Token::BINOP(token::AND), _) => false,
 
-            (&token::BINOP(_), _) | (_, &token::BINOP(_)) => true,
-            (&token::BINOPEQ(_), _) | (_, &token::BINOPEQ(_)) => true,
+            (&Token::BINOP(_), _) | (_, &Token::BINOP(_)) => true,
+            (&Token::BINOPEQ(_), _) | (_, &Token::BINOPEQ(_)) => true,
 
-            (&token::MOD_SEP, _) | (_, &token::MOD_SEP) => false,
+            (&Token::MOD_SEP, _) | (_, &Token::MOD_SEP) => false,
 
-            (&token::RARROW, _) | (_, &token::RARROW) => true,
-            (&token::FAT_ARROW, _) | (_, &token::FAT_ARROW) => true,
-            (&token::LBRACE, _) | (_, &token::LBRACE) => true,
-            (&token::RBRACE, _) | (_, &token::RBRACE) => true,
-            (&token::SEMI, _) | (_, &token::COMMENT) => true,
-            (&token::COMMENT, _) => true,
+            (&Token::RARROW, _) | (_, &Token::RARROW) => true,
+            (&Token::FAT_ARROW, _) | (_, &Token::FAT_ARROW) => true,
+            (&Token::LBRACE, _) | (_, &Token::LBRACE) => true,
+            (&Token::RBRACE, _) | (_, &Token::RBRACE) => true,
+            (&Token::SEMI, _) | (_, &Token::COMMENT) => true,
+            (&Token::COMMENT, _) => true,
             _ => false,
         }
     }
@@ -150,7 +151,7 @@ impl LineToken {
         match &self.tok {
             &LexerVal(ref token_and_span) => {
                 match &token_and_span.tok {
-                    &token::RBRACE => -TAB_WIDTH,
+                    &Token::RBRACE => -TAB_WIDTH,
                     _ => 0,
                 }
             },
@@ -312,7 +313,7 @@ impl<'a> Formatter<'a> {
                 match token_and_span.tok {
                     token::RBRACE => {
                         match (&self.second_previous_token, &self.last_token) {
-                            (&token::FAT_ARROW, &token::LBRACE) => false,
+                            (&Token::FAT_ARROW, &Token::LBRACE) => false,
                             _ => self.newline_after_brace
                         }
                     },
@@ -489,13 +490,13 @@ impl<'a> Formatter<'a> {
                     try_io!(self.output.write_str(format!("{}", token::to_string(curr_tok)).as_slice()));
 
                     // collapse empty blocks in match arms
-                    if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() - 1) &&
-                        self.logical_line.tokens[i+1].is_token(&token::RBRACE) {
+                    if (curr_tok == &Token::OpenDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                        self.logical_line.tokens[i+1].is_token(&Token::CloseDelim(DelimToken::Brace)) {
                         continue;
                     }
                     // no whitespace after right-brackets, before comma in match arm
-                    if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() - 1) &&
-                        self.logical_line.tokens[i+1].is_token(&token::COMMA) {
+                    if (curr_tok == &Token::CloseDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                        self.logical_line.tokens[i+1].is_token(&Token::Comma) {
                         continue;
                     }
                     for _ in range(0, self.logical_line.whitespace_after(i)) {
