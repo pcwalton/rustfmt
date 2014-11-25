@@ -101,13 +101,13 @@ impl LineToken {
             }
 
             (&token::Ident(..), _) if
-		    curr_tok.is_keyword(keywords::If) ||
-		    curr_tok.is_keyword(keywords::As) ||
-		    curr_tok.is_keyword(keywords::Match) => {
+                curr_tok.is_keyword(keywords::If) ||
+                curr_tok.is_keyword(keywords::As) ||
+                curr_tok.is_keyword(keywords::Match) => {
                 true
             }
             (_, &token::Ident(..))
-		    if next_tok.is_keyword(keywords::If) => {
+                    if next_tok.is_keyword(keywords::If) => {
                 true
             }
 
@@ -146,7 +146,7 @@ impl LineToken {
     fn length(&self) -> i32 {
         match &self.tok {
             &LexerVal(ref token_and_span) =>
-		pprust::token_to_string(&token_and_span.tok).len() as i32,
+                pprust::token_to_string(&token_and_span.tok).len() as i32,
             _ => 0
         }
     }
