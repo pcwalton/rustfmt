@@ -24,7 +24,6 @@ use std::io::Writer;
 
 use syntax::parse::lexer::{TokenAndSpan, Reader};
 use syntax::parse::token::Token;
-use syntax::parse::token::DelimToken;
 use syntax::parse::token::BinOpToken;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
@@ -125,8 +124,8 @@ impl LineToken {
             (&token::OrOr, _) | (_, &token::OrOr) => true,
             (&token::Tilde, _) | (_, &token::Tilde) => true,
 
-            (&token::OpenDelim(DelimToken::Paren), _) => false,
-            (_, &token::CloseDelim(DelimToken::Paren)) => false,
+            (&token::OpenDelim(token::Paren), _) => false,
+            (_, &token::CloseDelim(token::Paren)) => false,
             (&token::BinOp(BinOpToken::And), _) => false,
 
             (&token::BinOp(_), _) | (_, &token::BinOp(_)) => true,
@@ -136,8 +135,8 @@ impl LineToken {
 
             (&token::RArrow, _) | (_, &token::RArrow) => true,
             (&token::FatArrow, _) | (_, &token::FatArrow) => true,
-            (&token::OpenDelim(DelimToken::Brace), _) | (_, &token::OpenDelim(DelimToken::Brace)) => true,
-            (&token::CloseDelim(DelimToken::Brace), _) | (_, &token::CloseDelim(DelimToken::Brace)) => true,
+            (&token::OpenDelim(token::Brace), _) | (_, &token::OpenDelim(token::Brace)) => true,
+            (&token::CloseDelim(token::Brace), _) | (_, &token::CloseDelim(token::Brace)) => true,
             (&token::Semi, _) | (_, &token::Comment) => true,
             (&token::Comment, _) => true,
             _ => false,
@@ -156,7 +155,7 @@ impl LineToken {
         match &self.tok {
             &LexerVal(ref token_and_span) => {
                 match &token_and_span.tok {
-                    &token::CloseDelim(DelimToken::Brace) => -TAB_WIDTH,
+                    &token::CloseDelim(token::Brace) => -TAB_WIDTH,
                     _ => 0,
                 }
             },
@@ -208,7 +207,7 @@ impl LogicalLine {
                 match &line_token.tok {
                     &LexerVal(ref token_and_span) => {
                         match token_and_span.tok {
-                            token::OpenDelim(DelimToken::Brace) => TAB_WIDTH,
+                            token::OpenDelim(token::Brace) => TAB_WIDTH,
                             _ => 0,
                         }
                     },
@@ -281,7 +280,7 @@ impl<'a> Formatter<'a> {
                             _ => true
                         }
                     },
-                    token::CloseDelim(DelimToken::Brace) => {
+                    token::CloseDelim(token::Brace) => {
                         match self.curr_tok() {
                             &LexerVal(TokenAndSpan { tok: token::Comma, sp: _ }) => {
                                 false
@@ -290,10 +289,10 @@ impl<'a> Formatter<'a> {
                         }
                     },
                     token::Comma => self.newline_after_comma,
-                    token::OpenDelim(DelimToken::Brace) => {
+                    token::OpenDelim(token::Brace) => {
                         match self.curr_tok() {
                             &LexerVal(ref t) => {
-                                if t.tok == token::CloseDelim(DelimToken::Brace) {
+                                if t.tok == token::CloseDelim(token::Brace) {
                                     false
                                 } else {
                                     self.newline_after_brace
@@ -303,7 +302,7 @@ impl<'a> Formatter<'a> {
                         }
                     },
                     token::DocComment(_) => true,
-                    token::CloseDelim(DelimToken::Bracket) => self.in_attribute,
+                    token::CloseDelim(token::Bracket) => self.in_attribute,
                     _ => false,
                 }
             },
@@ -316,9 +315,9 @@ impl<'a> Formatter<'a> {
         match &line_token.tok {
             &LexerVal(ref token_and_span) => {
                 match token_and_span.tok {
-                    token::CloseDelim(DelimToken::Brace) => {
+                    token::CloseDelim(token::Brace) => {
                         match (&self.second_previous_token, &self.last_token) {
-                            (&token::FatArrow, &token::OpenDelim(DelimToken::Brace)) => false,
+                            (&token::FatArrow, &token::OpenDelim(token::Brace)) => false,
                             _ => self.newline_after_brace
                         }
                     },
@@ -351,14 +350,14 @@ impl<'a> Formatter<'a> {
 
     fn parse_match(&mut self) -> FormatterResult<bool> {
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(DelimToken::Brace))) {
+        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(token::Brace))) {
             return Ok(false);
         }
 
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
 
-        if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(DelimToken::Brace))) {
+        if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace))) {
             return Ok(false);
         }
 
@@ -371,15 +370,15 @@ impl<'a> Formatter<'a> {
         self.newline_after_brace = false;
 
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(DelimToken::Brace) || *token == token::Semi)) {
+        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(token::Brace) || *token == token::Semi)) {
             return Ok(false);
         }
 
-        if self.last_token == token::OpenDelim(DelimToken::Brace) {
+        if self.last_token == token::OpenDelim(token::Brace) {
             let old_newline_after_comma_setting = self.newline_after_comma;
             self.newline_after_comma = false;
 
-            if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(DelimToken::Brace))) {
+            if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace))) {
                 return Ok(false);
             }
 
@@ -394,7 +393,7 @@ impl<'a> Formatter<'a> {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
         // We've already parsed the '{'. Parse until we find a '}'.
-        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(DelimToken::Brace)));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace)));
 
         self.newline_after_comma = old_newline_after_comma_setting;
         return Ok(result);
@@ -405,7 +404,7 @@ impl<'a> Formatter<'a> {
         self.newline_after_comma = false;
 
         // We've already parsed the '('. Parse until we find a ')'.
-        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(DelimToken::Paren)));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Paren)));
 
         self.newline_after_comma = old_newline_after_comma_setting;
         return Ok(result);
@@ -414,7 +413,7 @@ impl<'a> Formatter<'a> {
     fn parse_attribute(&mut self) -> FormatterResult<bool> {
         // Parse until we find a ']'.
         self.in_attribute = true;
-        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(DelimToken::Bracket)));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Bracket)));
         return Ok(result);
     }
 
@@ -428,8 +427,8 @@ impl<'a> Formatter<'a> {
             token::Ident(..) if self.last_token.is_keyword(keywords::Use) => {
                 production_to_parse = UseProduction;
             }
-            token::OpenDelim(DelimToken::Brace) => production_to_parse = BracesProduction,
-            token::OpenDelim(DelimToken::Paren) => production_to_parse = ParenthesesProduction,
+            token::OpenDelim(token::Brace) => production_to_parse = BracesProduction,
+            token::OpenDelim(token::Paren) => production_to_parse = ParenthesesProduction,
             token::Pound => production_to_parse = AttributeProduction,
             _ => return Ok(true),
         }
@@ -495,12 +494,12 @@ impl<'a> Formatter<'a> {
                     try_io!(self.output.write_str(format!("{}", pprust::token_to_string(curr_tok)).as_slice()));
 
                     // collapse empty blocks in match arms
-                    if (curr_tok == &token::OpenDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
-                        self.logical_line.tokens[i+1].is_token(&token::CloseDelim(DelimToken::Brace)) {
+                    if (curr_tok == &token::OpenDelim(token::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                        self.logical_line.tokens[i+1].is_token(&token::CloseDelim(token::Brace)) {
                         continue;
                     }
                     // no whitespace after right-brackets, before comma in match arm
-                    if (curr_tok == &token::CloseDelim(DelimToken::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                    if (curr_tok == &token::CloseDelim(token::Brace) && i != self.logical_line.tokens.len() - 1) &&
                         self.logical_line.tokens[i+1].is_token(&token::Comma) {
                         continue;
                     }
