@@ -22,7 +22,7 @@
 
 use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{StringReader, TokenAndSpan, Reader};
-use syntax::parse::token::Token;
+use syntax::parse::token;
 
 use self::TransformedToken::{LexerVal, BlankLine, Comment};
 
@@ -38,7 +38,7 @@ impl TransformedToken {
         match self {
             &BlankLine => true,
             &LexerVal(ref t) => {
-                if t.tok == Token::Whitespace {
+                if t.tok == token::Whitespace {
                     let comment_str = sh.cm.span_to_snippet(t.sp).unwrap();
                     comment_str.as_slice().contains("\n")
                 } else {
@@ -54,7 +54,7 @@ pub fn extract_tokens(lexer: &mut StringReader) -> Vec<TransformedToken> {
     let mut in_toknspans = Vec::new();
     loop {
         match lexer.next_token() {
-            t @ TokenAndSpan{tok: Token::Eof, sp: _} => {
+            t @ TokenAndSpan{tok: token::Eof, sp: _} => {
                 in_toknspans.push(LexerVal(t));
                 break;
             },

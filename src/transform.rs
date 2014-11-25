@@ -22,7 +22,7 @@
 
 use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
-use syntax::parse::token::Token;
+use syntax::parse::token;
 
 use token::TransformedToken;
 use token::TransformedToken::{Comment, LexerVal, BlankLine};
@@ -51,14 +51,14 @@ pub fn transform_tokens(input_tokens: &[TransformedToken], span_handler: &SpanHa
         match current_token {
             &LexerVal(ref current_token) => {
                 match current_token {
-                    t @ &TokenAndSpan { tok: Token::Whitespace, sp: _ } => {
+                    t @ &TokenAndSpan { tok: token::Whitespace, sp: _ } => {
                         let ws_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
                         if has_blank_line(ws_str.as_slice()) {
                             out_tokens.push(BlankLine);
                         }
                         curr_idx += 1;
                     },
-                    t @ &TokenAndSpan { tok: Token::Comment, sp: _ } => {
+                    t @ &TokenAndSpan { tok: token::Comment, sp: _ } => {
                         handle_comment(input_tokens, &mut out_tokens, &mut curr_idx, span_handler, t);
                     }
                     t => {
