@@ -228,7 +228,7 @@ pub struct Formatter<'a> {
     newline_after_comma: bool,
     newline_after_brace: bool,
     in_attribute: bool,
-    output: &'a mut Writer+'a
+    output: &'a mut (Writer + 'a)
 }
 
 impl<'a> Formatter<'a> {
