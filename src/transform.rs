@@ -31,8 +31,7 @@ pub type TransformerResult<T> = Result<T, String>;
 
 #[allow(dead_code)]
 pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
-    use std::str::Str;
-    let newlines: Vec<(uint, uint)> = ws_str.match_indices("\n").collect();
+    let newlines: Vec<(usize, usize)> = ws_str.match_indices("\n").collect();
     let newline_count = newlines.len();
     newline_count > 1
 }
@@ -76,7 +75,7 @@ pub fn transform_tokens(input_tokens: &[TransformedToken], span_handler: &SpanHa
     Ok(out_tokens)
 }
 
-fn handle_comment(input_tokens: &[TransformedToken], out_tokens: &mut Vec<TransformedToken>, curr_idx: &mut uint, span_handler: &SpanHandler, t: &TokenAndSpan) {
+fn handle_comment(input_tokens: &[TransformedToken], out_tokens: &mut Vec<TransformedToken>, curr_idx: &mut usize, span_handler: &SpanHandler, t: &TokenAndSpan) {
     let curr_idx_cpy = *curr_idx;
     let comment_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
     let starts_line = {

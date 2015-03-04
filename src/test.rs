@@ -20,10 +20,11 @@
 
 // src/test.rs
 
-use std::io::MemWriter;
+use std::old_io::MemWriter;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
+use syntax::parse::token::{Token, DelimToken};
 use syntax::parse::token;
 use token::extract_tokens;
 
@@ -46,7 +47,7 @@ fn test_rustfmt(source: &str) -> String {
             Err(e) => panic!("Error in trasformer: {}", e)
         }
     }
-    str::from_utf8(output.unwrap().as_slice()).unwrap().to_string()
+    str::from_utf8(output.into_inner().as_slice()).unwrap().to_string()
 }
 
 #[test]
@@ -223,8 +224,8 @@ fn is_token_works() {
     let mut lexer = lexer::StringReader::new(&session.span_diagnostic, filemap);
     let all_tokens = extract_tokens(&mut lexer);
     let left_brace = LineToken::new(all_tokens[0].clone());
-    assert!(left_brace.is_token(&token::LBRACE) == true);
-    assert!(left_brace.is_token(&token::RBRACE) == false);
+    assert!(left_brace.is_token(&Token::OpenDelim(DelimToken::Brace)) == true);
+    assert!(left_brace.is_token(&Token::CloseDelim(DelimToken::Brace)) == false);
 }
 
 #[test]

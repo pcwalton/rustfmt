@@ -26,7 +26,7 @@ use syntax::parse::token;
 
 use self::TransformedToken::{LexerVal, BlankLine, Comment};
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub enum TransformedToken {
     LexerVal(TokenAndSpan),
     BlankLine,

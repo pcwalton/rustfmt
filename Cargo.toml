@@ -6,6 +6,9 @@ readme = "README.md"
 authors = ["Patrick Walton <pcwalton@mozilla.com>", "Jeff Olson <olson.jeffery@gmail.com>"]
 tags = ["util"]
 
+description = "Rust code formatter"
+license = "MIT"
+
 [[bin]]
 
 name = "rustfmt"

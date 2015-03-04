@@ -20,7 +20,7 @@
 
 // src/transform.rs
 
-use std::io::Writer;
+use std::old_io::Writer;
 
 use syntax::parse::lexer::{TokenAndSpan, Reader};
 use syntax::parse::token::Token;
@@ -38,9 +38,9 @@ macro_rules! try_io(
     ($e:expr) => (match $e {
         Ok(_) => {},
         Err(err) => return Err(
-                format!("Err in Formatter: {}: '{}' details: {}", err.to_string(), err.desc, err.detail))
+            format!("Err in Formatter: {}: '{}' details: {:?}", err.to_string(), err.desc, err.detail))
     })
-)
+        );
 
 static TAB_WIDTH: i32 = 4;
 
@@ -95,21 +95,21 @@ impl LineToken {
         match (&curr_tok, &next_tok) {
             (&token::Ident(..), &token::Ident(..)) => true,
             (&token::Ident(..), &token::Not)
-                    if !curr_tok.is_any_keyword() => {
-                // Macros.
-                false
-            }
+                if !curr_tok.is_any_keyword() => {
+                    // Macros.
+                    false
+                }
 
             (&token::Ident(..), _) if
                 curr_tok.is_keyword(keywords::If) ||
                 curr_tok.is_keyword(keywords::As) ||
                 curr_tok.is_keyword(keywords::Match) => {
-                true
-            }
+                    true
+                }
             (_, &token::Ident(..))
-                    if next_tok.is_keyword(keywords::If) => {
-                true
-            }
+                if next_tok.is_keyword(keywords::If) => {
+                    true
+                }
 
             (&token::Colon, _) => true,
             (&token::Comma, _) => true,
@@ -185,19 +185,19 @@ impl LogicalLine {
             x_pos += self.tokens[i].length();
 
             if i < self.tokens.len() - 1 &&
-                    self.tokens[i].whitespace_needed_after(&self.tokens[i + 1]) {
-                x_pos += 1;
-            }
+                self.tokens[i].whitespace_needed_after(&self.tokens[i + 1]) {
+                    x_pos += 1;
+                }
         }
     }
 
-    fn whitespace_after(&self, index: uint) -> i32 {
+    fn whitespace_after(&self, index: usize) -> i32 {
         if self.tokens.len() <= 1 || index >= self.tokens.len() - 1 {
             return 0
         }
 
         self.tokens[index + 1].x_pos - (self.tokens[index].x_pos +
-                                            self.tokens[index].length())
+                                        self.tokens[index].length())
     }
 
     fn postindentation(&self) -> i32 {
@@ -220,7 +220,7 @@ impl LogicalLine {
 
 pub struct Formatter<'a> {
     input_tokens: &'a [TransformedToken],
-    curr_idx: uint,
+    curr_idx: usize,
     indent: i32,
     logical_line: LogicalLine,
     last_token: Token,
@@ -232,7 +232,7 @@ pub struct Formatter<'a> {
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new<'a>(input_tokens: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
+    pub fn new(input_tokens: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
         Formatter {
             input_tokens: input_tokens,
             curr_idx: 0,
@@ -262,11 +262,11 @@ impl<'a> Formatter<'a> {
         }
     }
     
-    fn curr_tok(&'a self) -> &'a TransformedToken {
+    fn curr_tok(&self) -> &TransformedToken {
         &self.input_tokens[self.curr_idx]
     }
 
-    fn is_eof(&'a self) -> bool {
+    fn is_eof(&self) -> bool {
         self.input_tokens.len() == self.curr_idx
     }
 
@@ -329,7 +329,7 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn parse_tokens_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+    fn parse_tokens_up_to<F: Fn(&token::Token) -> bool>(&mut self, pred: F) -> FormatterResult<bool> {
         while try!(self.next_token()) {
             if pred(&self.last_token) {
                 return Ok(true);
@@ -338,7 +338,7 @@ impl<'a> Formatter<'a> {
         return Ok(false);
     }
 
-    fn parse_productions_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+    fn parse_productions_up_to<F: Fn(&token::Token) -> bool>(&mut self, pred: F) -> FormatterResult<bool> {
         while try!(self.next_token()) {
             if pred(&self.last_token) {
                 return Ok(true);
@@ -462,6 +462,7 @@ impl<'a> Formatter<'a> {
 
             let curr_tok_copy = self.curr_tok().clone();
             self.curr_idx += 1;
+
             let token_ends_logical_line = self.token_ends_logical_line(&current_line_token);
             self.second_previous_token = self.last_token.clone();
             self.last_token = match curr_tok_copy {
