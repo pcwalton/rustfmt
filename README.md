@@ -1,3 +1,9 @@
+### Important notice
+
+This project is deprecated in favor of nrc's `rustfmt` available here:
+
+    https://github.com/rust-lang-nursery/rustfmt
+
 ## `rustfmt` -- code formatting Rust
 
 `rustfmt` is distributed under the terms of the "MIT License." See `LICENSE.txt` in the root of this repository for more information.
