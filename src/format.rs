@@ -20,26 +20,32 @@
 
 // src/transform.rs
 
-use std::io::Writer;
+use std::old_io::Writer;
 
 use syntax::parse::lexer::{TokenAndSpan, Reader};
 use syntax::parse::token::Token;
+use syntax::parse::token::BinOpToken;
 use syntax::parse::token::keywords;
 use syntax::parse::token;
+use syntax::print::pprust;
 
-use token::{Comment, LexerVal, TransformedToken, BlankLine};
+use token::TransformedToken;
+use token::TransformedToken::{Comment,LexerVal,BlankLine};
+
+use self::ProductionToParse::{MatchProduction,UseProduction,BracesProduction,ParenthesesProduction,AttributeProduction};
 
 macro_rules! try_io(
     ($e:expr) => (match $e {
         Ok(_) => {},
         Err(err) => return Err(
-                format!("Err in Formatter: {}: '{}' details: {}", err.to_string(), err.desc, err.detail))
+            format!("Err in Formatter: {}: '{}' details: {:?}", err.to_string(), err.desc, err.detail))
     })
-)
+        );
 
 static TAB_WIDTH: i32 = 4;
 
 pub type FormatterResult<T> = Result<T, String>;
+
 
 enum ProductionToParse {
     MatchProduction,
@@ -78,61 +84,61 @@ impl LineToken {
     fn whitespace_needed_after(&self, next: &LineToken) -> bool {
         let (curr_tok, _curr_comment_ends_line) = match &self.tok {
             &LexerVal(ref token_and_span) => (token_and_span.tok.clone(), false),
-            &Comment(_, _, ends_line) => (token::COMMENT, ends_line),
-            _ => (token::WS, false)
+            &Comment(_, _, ends_line) => (Token::Comment, ends_line),
+            _ => (Token::Whitespace, false)
         };
         let (next_tok, _next_comment_ends_line) = match &next.tok {
             &LexerVal(ref token_and_span) => (token_and_span.tok.clone(), false),
-            &Comment(_, _, ends_line) => (token::COMMENT, ends_line),
-            _ => (token::WS, false)
+            &Comment(_, _, ends_line) => (Token::Comment, ends_line),
+            _ => (Token::Whitespace, false)
         };
         match (&curr_tok, &next_tok) {
-            (&token::IDENT(..), &token::IDENT(..)) => true,
-            (&token::IDENT(..), &token::NOT)
-                    if !token::is_any_keyword(&curr_tok) => {
-                // Macros.
-                false
-            }
+            (&token::Ident(..), &token::Ident(..)) => true,
+            (&token::Ident(..), &token::Not)
+                if !curr_tok.is_any_keyword() => {
+                    // Macros.
+                    false
+                }
 
-            (&token::IDENT(..), _) if
-                    token::is_keyword(keywords::If, &curr_tok) ||
-                    token::is_keyword(keywords::As, &curr_tok) ||
-                    token::is_keyword(keywords::Match, &curr_tok) => {
-                true
-            }
-            (_, &token::IDENT(..))
-                    if token::is_keyword(keywords::If, &next_tok) => {
-                true
-            }
+            (&token::Ident(..), _) if
+                curr_tok.is_keyword(keywords::If) ||
+                curr_tok.is_keyword(keywords::As) ||
+                curr_tok.is_keyword(keywords::Match) => {
+                    true
+                }
+            (_, &token::Ident(..))
+                if next_tok.is_keyword(keywords::If) => {
+                    true
+                }
 
-            (&token::COLON, _) => true,
-            (&token::COMMA, _) => true,
-            (&token::EQ, _) | (_, &token::EQ) => true,
-            (&token::LT, _) | (_, &token::LT) => true,
-            (&token::LE, _) | (_, &token::LE) => true,
-            (&token::EQEQ, _) | (_, &token::EQEQ) => true,
-            (&token::NE, _) | (_, &token::NE) => true,
-            (&token::GE, _) | (_, &token::GE) => true,
-            (&token::GT, _) | (_, &token::GT) => true,
-            (&token::ANDAND, _) | (_, &token::ANDAND) => true,
-            (&token::OROR, _) | (_, &token::OROR) => true,
-            (&token::TILDE, _) | (_, &token::TILDE) => true,
+            (&token::Colon, _) => true,
+            (&token::Comma, _) => true,
+            (&token::Eq, _) | (_, &token::Eq) => true,
+            (&token::Lt, _) | (_, &token::Lt) => true,
+            (&token::Le, _) | (_, &token::Le) => true,
+            (&token::EqEq, _) | (_, &token::EqEq) => true,
+            (&token::Ne, _) | (_, &token::Ne) => true,
+            (&token::Ge, _) | (_, &token::Ge) => true,
+            (&token::Gt, _) | (_, &token::Gt) => true,
+            (&token::AndAnd, _) | (_, &token::AndAnd) => true,
+            (&token::OrOr, _) | (_, &token::OrOr) => true,
+            (&token::Tilde, _) | (_, &token::Tilde) => true,
 
-            (&token::LPAREN, _) => false,
-            (_, &token::RPAREN) => false,
-            (&token::BINOP(token::AND), _) => false,
+            (&token::OpenDelim(token::Paren), _) => false,
+            (_, &token::CloseDelim(token::Paren)) => false,
+            (&token::BinOp(BinOpToken::And), _) => false,
 
-            (&token::BINOP(_), _) | (_, &token::BINOP(_)) => true,
-            (&token::BINOPEQ(_), _) | (_, &token::BINOPEQ(_)) => true,
+            (&token::BinOp(_), _) | (_, &token::BinOp(_)) => true,
+            (&token::BinOpEq(_), _) | (_, &token::BinOpEq(_)) => true,
 
-            (&token::MOD_SEP, _) | (_, &token::MOD_SEP) => false,
+            (&token::ModSep, _) | (_, &token::ModSep) => false,
 
-            (&token::RARROW, _) | (_, &token::RARROW) => true,
-            (&token::FAT_ARROW, _) | (_, &token::FAT_ARROW) => true,
-            (&token::LBRACE, _) | (_, &token::LBRACE) => true,
-            (&token::RBRACE, _) | (_, &token::RBRACE) => true,
-            (&token::SEMI, _) | (_, &token::COMMENT) => true,
-            (&token::COMMENT, _) => true,
+            (&token::RArrow, _) | (_, &token::RArrow) => true,
+            (&token::FatArrow, _) | (_, &token::FatArrow) => true,
+            (&token::OpenDelim(token::Brace), _) | (_, &token::OpenDelim(token::Brace)) => true,
+            (&token::CloseDelim(token::Brace), _) | (_, &token::CloseDelim(token::Brace)) => true,
+            (&token::Semi, _) | (_, &token::Comment) => true,
+            (&token::Comment, _) => true,
             _ => false,
         }
     }
@@ -140,7 +146,7 @@ impl LineToken {
     fn length(&self) -> i32 {
         match &self.tok {
             &LexerVal(ref token_and_span) =>
-                token::to_string(&token_and_span.tok).len() as i32,
+                pprust::token_to_string(&token_and_span.tok).len() as i32,
             _ => 0
         }
     }
@@ -149,7 +155,7 @@ impl LineToken {
         match &self.tok {
             &LexerVal(ref token_and_span) => {
                 match &token_and_span.tok {
-                    &token::RBRACE => -TAB_WIDTH,
+                    &token::CloseDelim(token::Brace) => -TAB_WIDTH,
                     _ => 0,
                 }
             },
@@ -175,23 +181,23 @@ impl LogicalLine {
         }
 
         for i in range(0, self.tokens.len()) {
-            self.tokens.get_mut(i).x_pos = x_pos;
+            self.tokens.get_mut(i).unwrap().x_pos = x_pos;
             x_pos += self.tokens[i].length();
 
             if i < self.tokens.len() - 1 &&
-                    self.tokens[i].whitespace_needed_after(&self.tokens[i + 1]) {
-                x_pos += 1;
-            }
+                self.tokens[i].whitespace_needed_after(&self.tokens[i + 1]) {
+                    x_pos += 1;
+                }
         }
     }
 
-    fn whitespace_after(&self, index: uint) -> i32 {
+    fn whitespace_after(&self, index: usize) -> i32 {
         if self.tokens.len() <= 1 || index >= self.tokens.len() - 1 {
             return 0
         }
 
         self.tokens[index + 1].x_pos - (self.tokens[index].x_pos +
-                                            self.tokens[index].length())
+                                        self.tokens[index].length())
     }
 
     fn postindentation(&self) -> i32 {
@@ -201,7 +207,7 @@ impl LogicalLine {
                 match &line_token.tok {
                     &LexerVal(ref token_and_span) => {
                         match token_and_span.tok {
-                            token::LBRACE => TAB_WIDTH,
+                            token::OpenDelim(token::Brace) => TAB_WIDTH,
                             _ => 0,
                         }
                     },
@@ -214,7 +220,7 @@ impl LogicalLine {
 
 pub struct Formatter<'a> {
     input_tokens: &'a [TransformedToken],
-    curr_idx: uint,
+    curr_idx: usize,
     indent: i32,
     logical_line: LogicalLine,
     last_token: Token,
@@ -222,18 +228,18 @@ pub struct Formatter<'a> {
     newline_after_comma: bool,
     newline_after_brace: bool,
     in_attribute: bool,
-    output: &'a mut Writer
+    output: &'a mut (Writer + 'a)
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new<'a>(input_tokens: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
+    pub fn new(input_tokens: &'a [TransformedToken], output: &'a mut Writer) -> Formatter<'a> {
         Formatter {
             input_tokens: input_tokens,
             curr_idx: 0,
             indent: 0,
             logical_line: LogicalLine::new(),
-            last_token: token::SEMI,
-            second_previous_token: token::SEMI,
+            last_token: token::Semi,
+            second_previous_token: token::Semi,
             newline_after_comma: false,
             newline_after_brace: true,
             in_attribute: false,
@@ -246,21 +252,21 @@ impl<'a> Formatter<'a> {
             match self.next_token() {
                 Ok(true) => {
                     match self.parse_production() {
-                        Err(e) => fail!(e),
+                        Err(e) => panic!(e),
                         _ => {}
                     }
                 },
                 Ok(false) => break,
-                Err(e) => fail!(e)
+                Err(e) => panic!(e)
             }
         }
     }
     
-    fn curr_tok(&'a self) -> &'a TransformedToken {
+    fn curr_tok(&self) -> &TransformedToken {
         &self.input_tokens[self.curr_idx]
     }
 
-    fn is_eof(&'a self) -> bool {
+    fn is_eof(&self) -> bool {
         self.input_tokens.len() == self.curr_idx
     }
 
@@ -268,25 +274,25 @@ impl<'a> Formatter<'a> {
         match &line_token.tok {
             &LexerVal(ref token_and_span) => {
                 match token_and_span.tok {
-                    token::SEMI => {
+                    token::Semi => {
                         match self.curr_tok() {
                             &Comment(_, starts_line, _) => starts_line,
                             _ => true
                         }
                     },
-                    token::RBRACE => {
+                    token::CloseDelim(token::Brace) => {
                         match self.curr_tok() {
-                            &LexerVal(TokenAndSpan { tok: token::COMMA, sp: _ }) => {
+                            &LexerVal(TokenAndSpan { tok: token::Comma, sp: _ }) => {
                                 false
                             }
                             _ => true
                         }
                     },
-                    token::COMMA => self.newline_after_comma,
-                    token::LBRACE => {
+                    token::Comma => self.newline_after_comma,
+                    token::OpenDelim(token::Brace) => {
                         match self.curr_tok() {
                             &LexerVal(ref t) => {
-                                if t.tok == token::RBRACE {
+                                if t.tok == token::CloseDelim(token::Brace) {
                                     false
                                 } else {
                                     self.newline_after_brace
@@ -295,8 +301,8 @@ impl<'a> Formatter<'a> {
                             _ => self.newline_after_brace
                         }
                     },
-                    token::DOC_COMMENT(_) => true,
-                    token::RBRACKET => self.in_attribute,
+                    token::DocComment(_) => true,
+                    token::CloseDelim(token::Bracket) => self.in_attribute,
                     _ => false,
                 }
             },
@@ -309,9 +315,9 @@ impl<'a> Formatter<'a> {
         match &line_token.tok {
             &LexerVal(ref token_and_span) => {
                 match token_and_span.tok {
-                    token::RBRACE => {
+                    token::CloseDelim(token::Brace) => {
                         match (&self.second_previous_token, &self.last_token) {
-                            (&token::FAT_ARROW, &token::LBRACE) => false,
+                            (&token::FatArrow, &token::OpenDelim(token::Brace)) => false,
                             _ => self.newline_after_brace
                         }
                     },
@@ -323,7 +329,7 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn parse_tokens_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+    fn parse_tokens_up_to<F: Fn(&token::Token) -> bool>(&mut self, pred: F) -> FormatterResult<bool> {
         while try!(self.next_token()) {
             if pred(&self.last_token) {
                 return Ok(true);
@@ -332,7 +338,7 @@ impl<'a> Formatter<'a> {
         return Ok(false);
     }
 
-    fn parse_productions_up_to(&mut self, pred: |&token::Token| -> bool) -> FormatterResult<bool> {
+    fn parse_productions_up_to<F: Fn(&token::Token) -> bool>(&mut self, pred: F) -> FormatterResult<bool> {
         while try!(self.next_token()) {
             if pred(&self.last_token) {
                 return Ok(true);
@@ -344,14 +350,14 @@ impl<'a> Formatter<'a> {
 
     fn parse_match(&mut self) -> FormatterResult<bool> {
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !try!(self.parse_tokens_up_to(|token| *token == token::LBRACE)) {
+        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(token::Brace))) {
             return Ok(false);
         }
 
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
 
-        if !try!(self.parse_productions_up_to(|token| *token == token::RBRACE)) {
+        if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace))) {
             return Ok(false);
         }
 
@@ -364,15 +370,15 @@ impl<'a> Formatter<'a> {
         self.newline_after_brace = false;
 
         // We've already parsed the keyword. Parse until we find a `{`.
-        if !try!(self.parse_tokens_up_to(|token| *token == token::LBRACE || *token == token::SEMI)) {
+        if !try!(self.parse_tokens_up_to(|token| *token == token::OpenDelim(token::Brace) || *token == token::Semi)) {
             return Ok(false);
         }
 
-        if self.last_token == token::LBRACE {
+        if self.last_token == token::OpenDelim(token::Brace) {
             let old_newline_after_comma_setting = self.newline_after_comma;
             self.newline_after_comma = false;
 
-            if !try!(self.parse_productions_up_to(|token| *token == token::RBRACE)) {
+            if !try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace))) {
                 return Ok(false);
             }
 
@@ -387,7 +393,7 @@ impl<'a> Formatter<'a> {
         let old_newline_after_comma_setting = self.newline_after_comma;
         self.newline_after_comma = true;
         // We've already parsed the '{'. Parse until we find a '}'.
-        let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACE));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Brace)));
 
         self.newline_after_comma = old_newline_after_comma_setting;
         return Ok(result);
@@ -398,7 +404,7 @@ impl<'a> Formatter<'a> {
         self.newline_after_comma = false;
 
         // We've already parsed the '('. Parse until we find a ')'.
-        let result = try!(self.parse_productions_up_to(|token| *token == token::RPAREN));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Paren)));
 
         self.newline_after_comma = old_newline_after_comma_setting;
         return Ok(result);
@@ -407,7 +413,7 @@ impl<'a> Formatter<'a> {
     fn parse_attribute(&mut self) -> FormatterResult<bool> {
         // Parse until we find a ']'.
         self.in_attribute = true;
-        let result = try!(self.parse_productions_up_to(|token| *token == token::RBRACKET));
+        let result = try!(self.parse_productions_up_to(|token| *token == token::CloseDelim(token::Bracket)));
         return Ok(result);
     }
 
@@ -415,15 +421,15 @@ impl<'a> Formatter<'a> {
         let production_to_parse;
         // TRANSFORM
         match self.last_token {
-            token::IDENT(..) if token::is_keyword(keywords::Match, &self.last_token) => {
+            token::Ident(..) if self.last_token.is_keyword(keywords::Match) => {
                 production_to_parse = MatchProduction;
             }
-            token::IDENT(..) if token::is_keyword(keywords::Use, &self.last_token) => {
+            token::Ident(..) if self.last_token.is_keyword(keywords::Use) => {
                 production_to_parse = UseProduction;
             }
-            token::LBRACE => production_to_parse = BracesProduction,
-            token::LPAREN => production_to_parse = ParenthesesProduction,
-            token::POUND => production_to_parse = AttributeProduction,
+            token::OpenDelim(token::Brace) => production_to_parse = BracesProduction,
+            token::OpenDelim(token::Paren) => production_to_parse = ParenthesesProduction,
+            token::Pound => production_to_parse = AttributeProduction,
             _ => return Ok(true),
         }
 
@@ -456,12 +462,13 @@ impl<'a> Formatter<'a> {
 
             let curr_tok_copy = self.curr_tok().clone();
             self.curr_idx += 1;
+
             let token_ends_logical_line = self.token_ends_logical_line(&current_line_token);
             self.second_previous_token = self.last_token.clone();
             self.last_token = match curr_tok_copy {
                 LexerVal(token_and_span) => token_and_span.tok,
-                BlankLine => token::WS,
-                Comment(_, _, _) => token::COMMENT
+                BlankLine => token::Whitespace,
+                Comment(_, _, _) => token::Comment
             };
             self.logical_line.tokens.push(current_line_token);
             if token_ends_logical_line {
@@ -485,16 +492,16 @@ impl<'a> Formatter<'a> {
             match &self.logical_line.tokens[i] {
                 &LineToken{ tok: LexerVal(ref token_and_span), x_pos: _ } => {
                     let curr_tok = &token_and_span.tok;
-                    try_io!(self.output.write_str(format!("{}", token::to_string(curr_tok)).as_slice()));
+                    try_io!(self.output.write_str(format!("{}", pprust::token_to_string(curr_tok)).as_slice()));
 
                     // collapse empty blocks in match arms
-                    if (curr_tok == &token::LBRACE && i != self.logical_line.tokens.len() - 1) &&
-                        self.logical_line.tokens[i+1].is_token(&token::RBRACE) {
+                    if (curr_tok == &token::OpenDelim(token::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                        self.logical_line.tokens[i+1].is_token(&token::CloseDelim(token::Brace)) {
                         continue;
                     }
                     // no whitespace after right-brackets, before comma in match arm
-                    if (curr_tok == &token::RBRACE && i != self.logical_line.tokens.len() - 1) &&
-                        self.logical_line.tokens[i+1].is_token(&token::COMMA) {
+                    if (curr_tok == &token::CloseDelim(token::Brace) && i != self.logical_line.tokens.len() - 1) &&
+                        self.logical_line.tokens[i+1].is_token(&token::Comma) {
                         continue;
                     }
                     for _ in range(0, self.logical_line.whitespace_after(i)) {

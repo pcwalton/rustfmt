@@ -21,13 +21,11 @@
 // src/main.rs
 
 #![crate_name="rustfmt"]
-#![desc = "Rust code formatter"]
-#![license = "MIT"]
-#![feature(macro_rules)]
+#![feature(core, collections, old_io, rustc_private)]
 
 extern crate syntax;
 
-use std::io;
+use std::old_io as io;
 use std::str;
 use syntax::parse::lexer;
 use syntax::parse;
@@ -59,7 +57,7 @@ pub fn main() {
                 let formatter = Formatter::new(out_tokens.as_slice(), &mut stdout);
                 formatter.process();
             },
-            Err(e) => fail!("Error in transformer: {}", e)
+            Err(e) => panic!("Error in transformer: {}", e)
         }
     }
 }
