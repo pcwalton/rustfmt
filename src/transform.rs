@@ -24,13 +24,14 @@ use syntax::diagnostic::SpanHandler;
 use syntax::parse::lexer::{TokenAndSpan};
 use syntax::parse::token;
 
-use token::{Comment, LexerVal, BlankLine, TransformedToken};
+use token::TransformedToken;
+use token::TransformedToken::{Comment, LexerVal, BlankLine};
 
 pub type TransformerResult<T> = Result<T, String>;
 
 #[allow(dead_code)]
 pub fn has_blank_line<'a>(ws_str: &'a str) -> bool {
-    use std::str::StrSlice;
+    use std::str::Str;
     let newlines: Vec<(uint, uint)> = ws_str.match_indices("\n").collect();
     let newline_count = newlines.len();
     newline_count > 1
@@ -50,14 +51,14 @@ pub fn transform_tokens(input_tokens: &[TransformedToken], span_handler: &SpanHa
         match current_token {
             &LexerVal(ref current_token) => {
                 match current_token {
-                    t @ &TokenAndSpan { tok: token::WS, sp: _ } => {
+                    t @ &TokenAndSpan { tok: token::Whitespace, sp: _ } => {
                         let ws_str = span_handler.cm.span_to_snippet(t.sp).unwrap();
                         if has_blank_line(ws_str.as_slice()) {
                             out_tokens.push(BlankLine);
                         }
                         curr_idx += 1;
                     },
-                    t @ &TokenAndSpan { tok: token::COMMENT, sp: _ } => {
+                    t @ &TokenAndSpan { tok: token::Comment, sp: _ } => {
                         handle_comment(input_tokens, &mut out_tokens, &mut curr_idx, span_handler, t);
                     }
                     t => {

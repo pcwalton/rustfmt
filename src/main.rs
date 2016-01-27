@@ -59,7 +59,7 @@ pub fn main() {
                 let formatter = Formatter::new(out_tokens.as_slice(), &mut stdout);
                 formatter.process();
             },
-            Err(e) => fail!("Error in transformer: {}", e)
+            Err(e) => panic!("Error in transformer: {}", e)
         }
     }
 }
